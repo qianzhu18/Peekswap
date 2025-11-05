@@ -10,10 +10,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 interface ActionBarProps {
   imageA: any
   imageB: any
-  whiteBarHeight: number // 改为 whiteBarHeight
+  coverRatio: number
 }
 
-export default function ActionBar({ imageA, imageB, whiteBarHeight }: ActionBarProps) {
+export default function ActionBar({ imageA, imageB, coverRatio }: ActionBarProps) {
   const [isComposing, setIsComposing] = useState(false)
   const [showComposedImage, setShowComposedImage] = useState(false)
   const [composedBlob, setComposedBlob] = useState<Blob | null>(null)
@@ -32,7 +32,7 @@ export default function ActionBar({ imageA, imageB, whiteBarHeight }: ActionBarP
 
     setIsComposing(true)
     try {
-      const blob = await composeImages(imageA, imageB, whiteBarHeight) // 传递像素值
+      const blob = await composeImages(imageA, imageB, coverRatio)
       const url = URL.createObjectURL(blob)
 
       setComposedBlob(blob)

@@ -10,7 +10,7 @@ import DesktopActionBar from "@/components/desktop-action-bar"
 import useImageStore from "@/lib/store"
 
 export default function Home() {
-  const { imageA, imageB, whiteBarHeight } = useImageStore() // 改为 whiteBarHeight
+  const { imageA, imageB, coverRatio } = useImageStore()
   const [activeTab, setActiveTab] = useState<"preview" | "full">("preview")
 
   return (
@@ -37,10 +37,10 @@ export default function Home() {
         </div>
       </main>
       {/* 底部操作条 */}
-      <ActionBar imageA={imageA} imageB={imageB} whiteBarHeight={whiteBarHeight} /> {/* 传递 whiteBarHeight */}
+      <ActionBar imageA={imageA} imageB={imageB} coverRatio={coverRatio} />
       {/* 桌面端悬浮操作按钮 */}
       <div className="hidden md:block">
-        <DesktopActionBar imageA={imageA} imageB={imageB} whiteBarHeight={whiteBarHeight} /> {/* 传递 whiteBarHeight */}
+        <DesktopActionBar imageA={imageA} imageB={imageB} coverRatio={coverRatio} />
       </div>
     </div>
   )

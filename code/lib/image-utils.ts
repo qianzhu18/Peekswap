@@ -57,23 +57,19 @@ export const processImage = async (file: File): Promise<ProcessedImage> => {
 export const composeImages = async (
   imageA: ProcessedImage,
   imageB: ProcessedImage,
-  whiteBarHeightPx: number,
+  coverRatio: number,
 ): Promise<Blob> => {
-  // 以较小宽度为基准，避免放大失真
-  const targetWidth = Math.min(imageA.width, imageB.width)
+  const safeBWidth = imageB.width > 0 ? imageB.width : imageA.width
+  const targetWidth = Math.min(imageA.width, safeBWidth)
+  const scaleB = targetWidth / (safeBWidth || 1)
+  const scaledBHeight = Math.max(Math.round(imageB.height * scaleB), 1)
 
-  // 计算图片A的显示高度（根据宽度等比缩放）
-  const imgAHeight = Math.round((targetWidth / imageA.width) * imageA.height)
-
-  // 计算图片B的显示高度
-  const imgBHeight = Math.round((targetWidth / imageB.width) * imageB.height)
-
-  // 额外白底：顶部留白 + 图片间隔 + 底部留白（确保第二张图在整张长图中心位置）
-  const paddingTop = whiteBarHeightPx
-  const paddingBetween = whiteBarHeightPx
-  const paddingBottom = paddingTop + imgAHeight + paddingBetween
-
-  const totalHeight = paddingTop + imgAHeight + paddingBetween + imgBHeight + paddingBottom
+  const desiredCoverHeight = Math.max(Math.round(scaledBHeight * coverRatio), 40)
+  const remainingHeight = Math.max(scaledBHeight - desiredCoverHeight, 0)
+  const topHeight = Math.floor(remainingHeight / 2)
+  const bottomHeight = remainingHeight - topHeight
+  const coverHeight = scaledBHeight - topHeight - bottomHeight
+  const totalHeight = topHeight + coverHeight + bottomHeight
 
   const canvas = document.createElement("canvas")
   canvas.width = targetWidth
@@ -88,14 +84,72 @@ export const composeImages = async (
   const imgAElement = await loadImage(imageA.url)
   const imgBElement = await loadImage(imageB.url)
 
-  // 绘制封面部分（图片A）到顶部留白之后
-  ctx.drawImage(imgAElement, 0, paddingTop, targetWidth, imgAHeight)
+  const topSourceHeight = topHeight > 0 ? topHeight / scaleB : 0
+  const bottomSourceHeight = bottomHeight > 0 ? bottomHeight / scaleB : 0
+  const coverSourceHeight = coverHeight > 0 ? coverHeight / scaleB : 0
 
-  // 白色遮挡区（位于两张图之间）已经通过填充实现
+  if (topHeight > 0) {
+    ctx.drawImage(imgBElement, 0, 0, imageB.width, topSourceHeight, 0, 0, targetWidth, topHeight)
+  }
 
-  // 绘制彩蛋部分（图片B）到中部遮挡区之后
-  const imageBStartY = paddingTop + imgAHeight + paddingBetween
-  ctx.drawImage(imgBElement, 0, imageBStartY, targetWidth, imgBHeight)
+  if (coverHeight > 0) {
+    ctx.drawImage(
+      imgBElement,
+      0,
+      topSourceHeight,
+      imageB.width,
+      coverSourceHeight,
+      0,
+      topHeight,
+      targetWidth,
+      coverHeight,
+    )
+  }
+
+  if (bottomHeight > 0) {
+    ctx.drawImage(
+      imgBElement,
+      0,
+      imageB.height - bottomSourceHeight,
+      imageB.width,
+      bottomSourceHeight,
+      0,
+      topHeight + coverHeight,
+      targetWidth,
+      bottomHeight,
+    )
+  }
+
+  const scaleA = targetWidth / imageA.width
+  const scaledAHeight = Math.round(imageA.height * scaleA)
+  let sourceAY = 0
+  let sourceAHeight = imageA.height
+  let destAY = topHeight
+  let destAHeight = coverHeight
+
+  if (scaledAHeight <= coverHeight) {
+    destAHeight = scaledAHeight
+    destAY = topHeight + Math.floor((coverHeight - scaledAHeight) / 2)
+  } else if (scaledAHeight > 0) {
+    const cropRatio = coverHeight / scaledAHeight
+    const croppedHeight = Math.max(Math.round(imageA.height * cropRatio), 1)
+    sourceAY = Math.floor((imageA.height - croppedHeight) / 2)
+    sourceAHeight = croppedHeight
+  }
+
+  if (destAHeight > 0) {
+    ctx.drawImage(
+      imgAElement,
+      0,
+      sourceAY,
+      imageA.width,
+      sourceAHeight,
+      0,
+      destAY,
+      targetWidth,
+      destAHeight,
+    )
+  }
 
   return new Promise((resolve) => {
     canvas.toBlob(

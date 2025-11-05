@@ -5,11 +5,11 @@ import { Slider } from "@/components/ui/slider"
 import useImageStore from "@/lib/store"
 
 export default function ParameterSection() {
-  const { whiteBarHeight, setWhiteBarHeight } = useImageStore() // 改为 whiteBarHeight
+  const { coverRatio, setCoverRatio } = useImageStore()
 
   const getLabel = (value: number) => {
-    if (value < 200) return "稳健"
-    if (value < 480) return "标准"
+    if (value < 0.22) return "稳健"
+    if (value < 0.34) return "标准"
     return "爆梗"
   }
 
@@ -21,33 +21,35 @@ export default function ParameterSection() {
         {/* 滑杆 */}
         <div className="space-y-2">
           <div className="flex justify-between items-center">
-            <label className="text-sm text-gray-300">白色缓冲高度（上下同步）</label>
-            <span className="text-sm font-bold text-[#2FF0B5] transition-all duration-150">{whiteBarHeight}px</span>
+            <label className="text-sm text-gray-300">封面区高度占比</label>
+            <span className="text-sm font-bold text-[#2FF0B5] transition-all duration-150">
+              {(coverRatio * 100).toFixed(0)}%
+            </span>
           </div>
 
           <Slider
-            value={[whiteBarHeight]}
-            onValueChange={(value) => setWhiteBarHeight(value[0])}
-            min={80}
-            max={800}
-            step={20}
+            value={[coverRatio * 100]}
+            onValueChange={(value) => setCoverRatio(value[0] / 100)}
+            min={15}
+            max={40}
+            step={1}
             className="w-full"
           />
 
           {/* 刻度标签 */}
           <div className="flex justify-between text-xs text-gray-400 px-1">
-            <span>稳健 (80px)</span>
-            <span>标准 (240px)</span>
-            <span>爆梗 (800px)</span>
+            <span>稳健 (15%)</span>
+            <span>标准 (28%)</span>
+            <span>爆梗 (40%)</span>
           </div>
         </div>
 
         {/* 当前模式指示 */}
         <div className="bg-white/5 border border-white/10 rounded-lg p-3">
           <p className="text-xs text-gray-400">
-            当前模式: <span className="text-[#FFE45C] font-bold">{getLabel(whiteBarHeight)}</span>
+            当前模式: <span className="text-[#FFE45C] font-bold">{getLabel(coverRatio)}</span>
           </p>
-          <p className="text-xs text-gray-400 mt-2">上下白底越厚，第二张图越能稳稳待在长图中心，桌面端也更稳。</p>
+          <p className="text-xs text-gray-400 mt-2">封面区占比越大，聊天缩略图越容易完整展示 A。</p>
         </div>
 
         {/* 提示卡片 */}

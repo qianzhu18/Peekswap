@@ -13,19 +13,23 @@ interface ImageData {
 interface ImageStore {
   imageA: ImageData | null
   imageB: ImageData | null
-  whiteBarHeight: number // 改为 whiteBarHeight，单位为像素（px）
+  coverRatio: number // 封面区域占整张图高度的比例（0-1）
   setImageA: (data: ImageData | null) => void
   setImageB: (data: ImageData | null) => void
-  setWhiteBarHeight: (height: number) => void // 重命名 setter
+  setCoverRatio: (ratio: number) => void
 }
 
 const useImageStore = create<ImageStore>((set) => ({
   imageA: null,
   imageB: null,
-  whiteBarHeight: 240, // 默认值提升，保证预览遮挡更充足
+  coverRatio: 0.28,
   setImageA: (data) => set({ imageA: data }),
   setImageB: (data) => set({ imageB: data }),
-  setWhiteBarHeight: (height) => set({ whiteBarHeight: height }),
+  setCoverRatio: (ratio) => set({ coverRatio: ratio }),
 }))
+
+if (typeof window !== "undefined") {
+  ;(window as any).__PEEKSWAP_STORE__ = useImageStore
+}
 
 export default useImageStore
