@@ -32,3 +32,4 @@ code/.vercel/
 
 # Local caches
 .specstory/
+code/pnpm-lock.yaml

@@ -1,8 +1,10 @@
 {
   "version": 2,
   "framework": "nextjs",
-  "installCommand": "cd code && corepack pnpm install --frozen-lockfile",
-  "buildCommand": "cd code && corepack pnpm build",
-  "outputDirectory": "code/.next",
-  "devCommand": "cd code && corepack pnpm dev -- --hostname 0.0.0.0 --port 3000"
+  "installCommand": "corepack pnpm install --frozen-lockfile",
+  "buildCommand": "corepack pnpm --dir code build",
+  "devCommand": "corepack pnpm --dir code dev -- --hostname 0.0.0.0 --port 3000",
+  "projectSettings": {
+    "rootDirectory": "code"
+  }
 }
