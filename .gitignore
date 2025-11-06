@@ -16,6 +16,7 @@ code/.pnp/
 .pnp.*
 
 # Next.js
+/.next/
 code/.next/
 code/out/
 code/.vercel/
