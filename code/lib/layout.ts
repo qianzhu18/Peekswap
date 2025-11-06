@@ -4,33 +4,29 @@ export interface LayoutImageLike {
 }
 
 export interface CompositeLayout {
-  topHeight: number
+  whiteTop: number
+  whiteBottom: number
+  gapHeight: number
   coverHeight: number
-  bottomHeight: number
-  innerHeight: number
-  totalHeight: number
+  coverStart: number
+  coverImageOffset: number
+  effectStart: number
   scaledAHeight: number
   scaledBHeight: number
-  coverImageOffset: number
-  whitePadding: number
+  totalHeight: number
   scaleA: number
   scaleB: number
 }
 
-const WHITE_PADDING_WIDTH_MULTIPLIER = 1.75
-const WHITE_PADDING_HEIGHT_RATIO = 0.85
-const WHITE_PADDING_MIN = 720
+const MIN_BOTTOM_PADDING_RATIO = 0.95
+const MIN_BOTTOM_PADDING_PX = 480
+const MIN_GAP_RATIO = 0.18
+const MIN_GAP_PX = 160
+const MIN_COVER_FROM_WIDTH_RATIO = 0.65
+const MIN_COVER_NO_B_RATIO = 0.9
+const EXTRA_TOP_RATIO = 1.6
 
-const calculateWhitePadding = (innerHeight: number, targetWidth: number) => {
-  if (innerHeight <= 0) {
-    return 0
-  }
-
-  const fromWidth = Math.round(targetWidth * WHITE_PADDING_WIDTH_MULTIPLIER)
-  const fromHeight = Math.round(innerHeight * WHITE_PADDING_HEIGHT_RATIO)
-
-  return Math.max(WHITE_PADDING_MIN, fromWidth, fromHeight)
-}
+const clampPositive = (value: number) => Math.max(0, Math.round(value))
 
 export const calculateCompositeLayout = (
   imageA: LayoutImageLike | null,
@@ -40,15 +36,16 @@ export const calculateCompositeLayout = (
 ): CompositeLayout => {
   if (!imageA && !imageB) {
     return {
-      topHeight: 0,
+      whiteTop: 0,
+      whiteBottom: 0,
+      gapHeight: 0,
       coverHeight: 0,
-      bottomHeight: 0,
-      innerHeight: 0,
-      totalHeight: 0,
+      coverStart: 0,
+      coverImageOffset: 0,
+      effectStart: 0,
       scaledAHeight: 0,
       scaledBHeight: 0,
-      coverImageOffset: 0,
-      whitePadding: 0,
+      totalHeight: 0,
       scaleA: 0,
       scaleB: 0,
     }
@@ -59,41 +56,91 @@ export const calculateCompositeLayout = (
   const scaleA = imageA ? targetWidth / (safeWidthA || 1) : 0
   const scaleB = imageB ? targetWidth / (safeWidthB || 1) : 0
 
-  const scaledAHeight = imageA ? Math.max(Math.round(imageA.height * scaleA), 0) : 0
-  const scaledBHeight = imageB ? Math.max(Math.round(imageB.height * scaleB), 0) : 0
+  const scaledAHeight = imageA ? clampPositive(imageA.height * scaleA) : 0
+  const scaledBHeight = imageB ? clampPositive(imageB.height * scaleB) : 0
 
-  let coverHeight = scaledAHeight
-  if (imageB && scaledBHeight > 0) {
-    const desiredCover = Math.max(Math.round(scaledBHeight * coverRatio), 40)
-    coverHeight = Math.min(
-      Math.max(desiredCover, scaledAHeight > 0 ? scaledAHeight : desiredCover),
-      scaledBHeight,
+  if (!imageB) {
+    const coverBase = clampPositive(targetWidth * MIN_COVER_NO_B_RATIO)
+    const coverHeight = Math.max(coverBase, scaledAHeight)
+    const whitePadding = Math.max(
+      clampPositive(targetWidth * (MIN_BOTTOM_PADDING_RATIO + 0.35)),
+      MIN_BOTTOM_PADDING_PX,
     )
+
+    const totalHeight = whitePadding * 2 + coverHeight
+    const coverStart = whitePadding
+    const coverImageOffset = imageA && scaledAHeight < coverHeight
+      ? clampPositive((coverHeight - scaledAHeight) / 2)
+      : 0
+
+    return {
+      whiteTop: whitePadding,
+      whiteBottom: whitePadding,
+      gapHeight: 0,
+      coverHeight,
+      coverStart,
+      coverImageOffset,
+      effectStart: 0,
+      scaledAHeight,
+      scaledBHeight: 0,
+      totalHeight,
+      scaleA,
+      scaleB: 0,
+    }
   }
 
-  let topHeight = 0
-  let bottomHeight = 0
-  if (imageB && scaledBHeight > coverHeight) {
-    const remaining = Math.max(scaledBHeight - coverHeight, 0)
-    topHeight = Math.floor(remaining / 2)
-    bottomHeight = remaining - topHeight
+  const minimumCover = Math.max(
+    clampPositive(scaledBHeight * coverRatio),
+    clampPositive(targetWidth * MIN_COVER_FROM_WIDTH_RATIO),
+  )
+
+  const coverHeight = imageA ? Math.max(minimumCover, scaledAHeight) : minimumCover
+
+  const gapHeight = Math.max(
+    clampPositive(targetWidth * MIN_GAP_RATIO),
+    MIN_GAP_PX,
+  )
+
+  const minBottom = Math.max(
+    clampPositive(targetWidth * MIN_BOTTOM_PADDING_RATIO),
+    MIN_BOTTOM_PADDING_PX,
+  )
+
+  let whiteBottom = minBottom
+  let whiteTop = whiteBottom + gapHeight + scaledBHeight
+
+  const desiredTop = Math.max(
+    whiteTop,
+    clampPositive(targetWidth * (EXTRA_TOP_RATIO + 1)) + scaledBHeight,
+  )
+
+  if (desiredTop > whiteTop) {
+    whiteTop = desiredTop
   }
 
-  const innerHeight = Math.max(topHeight + coverHeight + bottomHeight, coverHeight)
-  const whitePadding = imageB ? calculateWhitePadding(innerHeight, targetWidth) : 0
-  const totalHeight = innerHeight + whitePadding * 2
-  const coverImageOffset = imageA ? Math.round((coverHeight - scaledAHeight) / 2) : 0
+  if (whiteTop - gapHeight - scaledBHeight > whiteBottom) {
+    whiteBottom = whiteTop - gapHeight - scaledBHeight
+  }
+
+  const coverStart = whiteTop
+  const effectStart = coverStart + coverHeight + gapHeight
+  const totalHeight = whiteTop + coverHeight + gapHeight + scaledBHeight + whiteBottom
+
+  const coverImageOffset = imageA && scaledAHeight < coverHeight
+    ? clampPositive((coverHeight - scaledAHeight) / 2)
+    : 0
 
   return {
-    topHeight,
+    whiteTop,
+    whiteBottom,
+    gapHeight,
     coverHeight,
-    bottomHeight,
-    innerHeight,
-    totalHeight,
+    coverStart,
+    coverImageOffset,
+    effectStart,
     scaledAHeight,
     scaledBHeight,
-    coverImageOffset,
-    whitePadding,
+    totalHeight,
     scaleA,
     scaleB,
   }

@@ -64,7 +64,7 @@ export const composeImages = async (
   const safeBWidth = imageB.width > 0 ? imageB.width : imageA.width
   const targetWidth = Math.min(imageA.width, safeBWidth)
   const layout = calculateCompositeLayout(imageA, imageB, targetWidth, coverRatio)
-  const canvasHeight = Math.max(layout.totalHeight, layout.innerHeight, layout.coverHeight, 1)
+  const canvasHeight = Math.max(layout.totalHeight, 1)
 
   const canvas = document.createElement("canvas")
   canvas.width = targetWidth
@@ -79,68 +79,17 @@ export const composeImages = async (
   const imgAElement = await loadImage(imageA.url)
   const imgBElement = await loadImage(imageB.url)
 
-  const scaleB = layout.scaleB || (targetWidth / (safeBWidth || 1))
-  const contentOffset = layout.whitePadding
-
-  const clampSource = (value: number) => Math.min(Math.max(value, 0), imageB.height)
-
-  const topSourceHeight = layout.topHeight > 0 && scaleB > 0 ? clampSource(layout.topHeight / scaleB) : 0
-  const coverSourceHeight = layout.coverHeight > 0 && scaleB > 0 ? clampSource(layout.coverHeight / scaleB) : 0
-  const bottomSourceHeight = layout.bottomHeight > 0 && scaleB > 0 ? clampSource(layout.bottomHeight / scaleB) : 0
-
-  if (layout.topHeight > 0 && scaleB > 0 && topSourceHeight > 0) {
-    ctx.drawImage(
-      imgBElement,
-      0,
-      0,
-      imageB.width,
-      topSourceHeight,
-      0,
-      contentOffset,
-      targetWidth,
-      layout.topHeight,
-    )
-  }
-
-  if (layout.coverHeight > 0 && scaleB > 0 && coverSourceHeight > 0) {
-    ctx.drawImage(
-      imgBElement,
-      0,
-      topSourceHeight,
-      imageB.width,
-      coverSourceHeight,
-      0,
-      contentOffset + layout.topHeight,
-      targetWidth,
-      layout.coverHeight,
-    )
-  }
-
-  if (layout.bottomHeight > 0 && scaleB > 0 && bottomSourceHeight > 0) {
-    ctx.drawImage(
-      imgBElement,
-      0,
-      imageB.height - bottomSourceHeight,
-      imageB.width,
-      bottomSourceHeight,
-      0,
-      contentOffset + layout.topHeight + layout.coverHeight,
-      targetWidth,
-      layout.bottomHeight,
-    )
-  }
-
-  const scaleA = layout.scaleA || (targetWidth / imageA.width)
-  const scaledAHeight = Math.max(Math.round(imageA.height * scaleA), 0)
-  let sourceAY = 0
-  let sourceAHeight = imageA.height
-  let destAY = contentOffset + layout.topHeight
-  let destAHeight = layout.coverHeight
-
   if (layout.coverHeight > 0) {
+    const scaleA = layout.scaleA || (targetWidth / imageA.width)
+    const scaledAHeight = Math.max(Math.round(imageA.height * scaleA), 0)
+    let sourceAY = 0
+    let sourceAHeight = imageA.height
+    let destAHeight = layout.coverHeight
+    let destAY = layout.coverStart
+
     if (scaledAHeight <= layout.coverHeight && scaledAHeight > 0) {
       destAHeight = scaledAHeight
-      destAY = contentOffset + layout.topHeight + layout.coverImageOffset
+      destAY = layout.coverStart + layout.coverImageOffset
     } else if (scaledAHeight > 0) {
       const cropRatio = layout.coverHeight / scaledAHeight
       const croppedHeight = Math.max(Math.round(imageA.height * cropRatio), 1)
@@ -161,6 +110,20 @@ export const composeImages = async (
         destAHeight,
       )
     }
+  }
+
+  if (layout.scaledBHeight > 0) {
+    ctx.drawImage(
+      imgBElement,
+      0,
+      0,
+      imageB.width,
+      imageB.height,
+      0,
+      layout.effectStart,
+      targetWidth,
+      layout.scaledBHeight,
+    )
   }
 
   return new Promise((resolve) => {

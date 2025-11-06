@@ -32,18 +32,6 @@ export default function PreviewSection({ activeTab, onTabChange }: PreviewSectio
       )
     }
 
-    if (!imageB) {
-      return imageA ? (
-        <div className="w-full h-full bg-white flex items-center justify-center">
-          <img src={imageA.url} alt="Cover" className="max-w-full max-h-full object-contain" />
-        </div>
-      ) : (
-        <div className="w-full h-full bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center">
-          <p className="text-gray-600 text-sm">等待封面...</p>
-        </div>
-      )
-    }
-
     const containerStyle: CSSProperties = {
       width: `${previewWidth}px`,
     }
@@ -60,11 +48,72 @@ export default function PreviewSection({ activeTab, onTabChange }: PreviewSectio
       })
     }
 
+    const renderCover = () => {
+      if (!layout.coverHeight) {
+        return null
+      }
+
+      if (!imageA) {
+        return (
+          <div
+            className="flex items-center justify-center text-gray-500 text-sm"
+            style={{ height: `${layout.coverHeight}px`, backgroundColor: "#ffffff" }}
+          >
+            等待封面...
+          </div>
+        )
+      }
+
+      const needsCrop = layout.scaledAHeight > layout.coverHeight
+      const offsetTop = !needsCrop ? Math.max(layout.coverImageOffset, 0) : 0
+
+      return (
+        <div
+          className="relative w-full overflow-hidden"
+          style={{
+            height: `${layout.coverHeight}px`,
+            backgroundColor: "#ffffff",
+          }}
+        >
+          <img
+            src={imageA.url}
+            alt="Cover"
+            className="absolute left-0 right-0 mx-auto"
+            style={{
+              width: "100%",
+              height: needsCrop ? "100%" : "auto",
+              top: `${offsetTop}px`,
+              objectFit: needsCrop ? "cover" : "contain",
+              objectPosition: "center",
+            }}
+          />
+        </div>
+      )
+    }
+
+    const renderEffect = () => {
+      if (!imageB || !layout.scaledBHeight) {
+        return null
+      }
+
+      return (
+        <div className="w-full" style={{ height: `${layout.scaledBHeight}px`, overflow: "hidden" }}>
+          <img
+            src={imageB.url}
+            alt="Effect"
+            className="w-full"
+            style={{
+              height: "100%",
+              objectFit: "cover",
+              objectPosition: "center",
+            }}
+          />
+        </div>
+      )
+    }
+
     return (
-      <div
-        className="bg-gray-900 rounded-lg overflow-hidden shadow-2xl mx-auto"
-        style={containerStyle}
-      >
+      <div className="bg-gray-900 rounded-lg overflow-hidden shadow-2xl mx-auto" style={containerStyle}>
         <div
           className="w-full"
           style={{
@@ -74,69 +123,32 @@ export default function PreviewSection({ activeTab, onTabChange }: PreviewSectio
             backgroundColor: "#ffffff",
           }}
         >
-          {layout.whitePadding > 0 && (
+          {layout.whiteTop > 0 && (
             <div
               style={{
-                width: "100%",
-                height: `${layout.whitePadding}px`,
+                height: `${layout.whiteTop}px`,
                 backgroundColor: "#ffffff",
               }}
             />
           )}
 
-          {layout.topHeight > 0 && (
-            <img
-              src={imageB.url}
-              alt="Effect top"
-              className="w-full"
-              style={{
-                height: `${layout.topHeight}px`,
-                objectFit: "cover",
-                objectPosition: "top center",
-              }}
-            />
-          )}
+          {renderCover()}
 
-          {layout.coverHeight > 0 && (
-            <div className="relative w-full overflow-hidden" style={{ height: `${layout.coverHeight}px` }}>
-              <img
-                src={imageB.url}
-                alt="Effect middle"
-                className="absolute inset-0 w-full h-full object-cover"
-                style={{ objectPosition: "center" }}
-              />
-              {imageA && (
-                <img
-                  src={imageA.url}
-                  alt="Cover"
-                  className="absolute left-0 w-full"
-                  style={{
-                    height: "auto",
-                    top: `${layout.coverImageOffset}px`,
-                  }}
-                />
-              )}
-            </div>
-          )}
-
-          {layout.bottomHeight > 0 && (
-            <img
-              src={imageB.url}
-              alt="Effect bottom"
-              className="w-full"
-              style={{
-                height: `${layout.bottomHeight}px`,
-                objectFit: "cover",
-                objectPosition: "bottom center",
-              }}
-            />
-          )}
-
-          {layout.whitePadding > 0 && (
+          {layout.gapHeight > 0 && layout.scaledBHeight > 0 && (
             <div
               style={{
-                width: "100%",
-                height: `${layout.whitePadding}px`,
+                height: `${layout.gapHeight}px`,
+                backgroundColor: "#ffffff",
+              }}
+            />
+          )}
+
+          {renderEffect()}
+
+          {layout.whiteBottom > 0 && (
+            <div
+              style={{
+                height: `${layout.whiteBottom}px`,
                 backgroundColor: "#ffffff",
               }}
             />
