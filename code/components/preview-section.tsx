@@ -26,6 +26,7 @@ export default function PreviewSection({ activeTab, onTabChange }: PreviewSectio
     const total = layout.whiteTop + layout.coverHeight + layout.gapHeight + layout.effectHeight + layout.whiteBottom
     if (!total) return []
     const segments: { label: string; value: number }[] = []
+    if (layout.whiteTop > 0) segments.push({ label: "顶部白底", value: layout.whiteTop })
     if (layout.coverHeight > 0) segments.push({ label: "第一张图片", value: layout.coverHeight })
     if (layout.gapHeight > 0) segments.push({ label: "白底间隔", value: layout.gapHeight })
     if (layout.effectHeight > 0) segments.push({ label: "第二张图片", value: layout.effectHeight })
@@ -80,7 +81,7 @@ export default function PreviewSection({ activeTab, onTabChange }: PreviewSectio
       return (
         <div
           style={{
-            width: `${previewWidth}px`,
+            width: `${layout.contentWidth}px`,
             height: `${layout.coverHeight}px`,
             margin: "0 auto",
             backgroundColor: "#ffffff",
@@ -122,7 +123,7 @@ export default function PreviewSection({ activeTab, onTabChange }: PreviewSectio
             alt="Effect"
             className="h-full object-cover"
             style={{
-              width: `${previewWidth}px`,
+              width: `${layout.contentWidth}px`,
               objectPosition: "center",
             }}
           />

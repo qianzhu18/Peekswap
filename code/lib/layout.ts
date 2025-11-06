@@ -1,6 +1,8 @@
 export interface LayoutImageLike {
   width: number
   height: number
+  processedWidth?: number
+  processedHeight?: number
 }
 
 export interface CompositeLayout {
@@ -44,153 +46,111 @@ export interface PreviewLayout {
   effectHeight: number
   coverStart: number
   effectStart: number
+  contentWidth: number
+  sidePadding: number
 }
 
-const WHITE_BOTTOM_RATIO = 1.1
-const WHITE_PADDING_MIN = 420
-const GAP_RATIO = 0.24
-const GAP_MIN = 160
+const TARGET_RATIO = 16 / 9
+const WIDTH_CANDIDATES = [1080, 1242, 1440]
+const TOP_WHITE_RATIO = 0.4
+const BOTTOM_WHITE_RATIO = 0.15
+const GAP_BASE = 40
+const MIN_SCALE = 0.6
 
 const clampPositive = (value: number) => Math.max(0, Math.round(value))
 
-export const calculateCompositeLayout = (
+const normalizeImage = (image: LayoutImageLike | null) => {
+  if (!image) return null
+  const width = image.processedWidth ?? image.width
+  const height = image.processedHeight ?? image.height
+  if (width <= 0 || height <= 0) return null
+  return { width, height }
+}
+
+const scaleHeightToWidth = (image: { width: number; height: number }, targetWidth: number) => {
+  return Math.max(1, Math.round((image.height * targetWidth) / image.width))
+}
+
+const buildPlanForWidth = (
   imageA: LayoutImageLike | null,
   imageB: LayoutImageLike | null,
-  targetWidth: number,
   coverRatio: number,
-): CompositeLayout => {
-  if (!imageA && !imageB) {
-    return {
-      whiteTop: 0,
-      whiteBottom: 0,
-      topHeight: 0,
-      coverHeight: 0,
-      bottomHeight: 0,
-      coverStart: 0,
-      coverImageOffset: 0,
-      effectStart: 0,
-      scaledAHeight: 0,
-      scaledBHeight: 0,
-      totalHeight: 0,
-      scaleA: 0,
-      scaleB: 0,
+  targetWidth: number,
+): CompositePlan | null => {
+  const normalizedA = normalizeImage(imageA)
+  const normalizedB = normalizeImage(imageB)
+  if (!normalizedA && !normalizedB) {
+    return null
+  }
+
+  const targetHeight = Math.round(targetWidth * TARGET_RATIO)
+  const hasA = !!normalizedA
+  const hasB = !!normalizedB
+
+  let coverHeight = hasA ? scaleHeightToWidth(normalizedA!, targetWidth) : 0
+  let effectHeight = hasB ? scaleHeightToWidth(normalizedB!, targetWidth) : 0
+
+  const topWhiteMin = hasA ? Math.round(targetHeight * TOP_WHITE_RATIO) : Math.round(targetHeight * 0.1)
+  const bottomWhiteMin = hasB ? Math.round(targetHeight * BOTTOM_WHITE_RATIO) : Math.round(targetHeight * 0.1)
+
+  let topWhite = topWhiteMin
+  let bottomWhite = bottomWhiteMin
+  let gapHeight = hasA && hasB ? GAP_BASE : 0
+  let scaleFactor = 1
+  let contentWidth = targetWidth
+  let sidePadding = 0
+
+  const contentHeight = () => coverHeight + gapHeight + effectHeight
+  const totalHeight = () => topWhite + contentHeight() + bottomWhite
+
+  const reduceGapIfNeeded = () => {
+    if (gapHeight === 0) return
+    const excess = totalHeight() - targetHeight
+    if (excess > 0) {
+      const reduction = Math.min(excess, gapHeight)
+      gapHeight -= reduction
     }
   }
 
-  const safeWidthA = imageA?.width ?? targetWidth
-  const safeWidthB = imageB?.width ?? targetWidth
-  const scaleA = imageA ? targetWidth / (safeWidthA || 1) : 0
-  const scaleB = imageB ? targetWidth / (safeWidthB || 1) : 0
+  reduceGapIfNeeded()
 
-  const scaledAHeight = imageA ? clampPositive(imageA.height * scaleA) : 0
-  const scaledBHeight = imageB ? clampPositive(imageB.height * scaleB) : 0
-
-  const whiteBottom = Math.max(
-    clampPositive(targetWidth * WHITE_BOTTOM_RATIO),
-    WHITE_PADDING_MIN,
-  )
-
-  const gapHeight = imageA && imageB
-    ? Math.max(clampPositive(targetWidth * GAP_RATIO), GAP_MIN)
-    : 0
-
-  if (!imageA && !imageB) {
-    return {
-      whiteTop: whiteBottom,
-      whiteBottom,
-      gapHeight: 0,
-      coverHeight: 0,
-      coverStart: whiteBottom,
-      coverImageOffset: 0,
-      effectStart: whiteBottom,
-      effectHeight: 0,
-      scaledAHeight: 0,
-      scaledBHeight: 0,
-      totalHeight: whiteBottom * 2,
-      scaleA,
-      scaleB,
+  if (totalHeight() > targetHeight) {
+    const available = targetHeight - topWhite - bottomWhite - gapHeight
+    const content = coverHeight + effectHeight
+    if (available <= 0 || content <= 0) {
+      return null
     }
+    scaleFactor = available / content
+    if (scaleFactor < MIN_SCALE && hasA && hasB) {
+      return null
+    }
+    coverHeight = Math.max(1, Math.round(coverHeight * scaleFactor))
+    effectHeight = Math.max(1, Math.round(effectHeight * scaleFactor))
+    contentWidth = Math.max(1, Math.round(targetWidth * scaleFactor))
+    sidePadding = Math.max(0, Math.floor((targetWidth - contentWidth) / 2))
   }
 
-  if (!imageB || scaledBHeight === 0) {
-    const coverStart = whiteBottom
-    const totalHeight = whiteBottom * 2 + scaledAHeight
-    return {
-      whiteTop: whiteBottom,
-      whiteBottom,
-      gapHeight: 0,
-      coverHeight: scaledAHeight,
-      coverStart,
-      coverImageOffset: 0,
-      effectStart: coverStart + scaledAHeight,
-      effectHeight: 0,
-      scaledAHeight,
-      scaledBHeight: 0,
-      totalHeight,
-      scaleA,
-      scaleB: 0,
-    }
+  if (totalHeight() < targetHeight) {
+    const deficit = targetHeight - totalHeight()
+    const topExtra = Math.round(deficit * 0.7)
+    topWhite += topExtra
+    bottomWhite += deficit - topExtra
   }
-
-  if (!imageA || scaledAHeight === 0) {
-    const coverStart = whiteBottom
-    const totalHeight = whiteBottom * 2 + scaledBHeight
-    return {
-      whiteTop: whiteBottom,
-      whiteBottom,
-      gapHeight: 0,
-      coverHeight: 0,
-      coverStart,
-      coverImageOffset: 0,
-      effectStart: coverStart,
-      effectHeight: scaledBHeight,
-      scaledAHeight: 0,
-      scaledBHeight,
-      totalHeight,
-      scaleA: 0,
-      scaleB,
-    }
-  }
-
-  const whiteTop = whiteBottom + gapHeight + scaledBHeight
-  const coverStart = whiteTop
-  const effectStart = coverStart + scaledAHeight + gapHeight
-  const totalHeight = whiteTop + scaledAHeight + gapHeight + scaledBHeight + whiteBottom
 
   return {
-    whiteTop,
-    whiteBottom,
+    targetWidth,
+    targetHeight,
+    whiteTop: topWhite,
+    whiteBottom: bottomWhite,
     gapHeight,
-    coverHeight: scaledAHeight,
-    coverStart,
-    coverImageOffset: 0,
-    effectStart,
-    effectHeight: scaledBHeight,
-    scaledAHeight,
-    scaledBHeight,
-    totalHeight,
-    scaleA,
-    scaleB,
+    coverHeight,
+    effectHeight,
+    coverStart: topWhite,
+    effectStart: topWhite + coverHeight + gapHeight,
+    contentWidth,
+    sidePadding,
+    scaleFactor,
   }
-}
-
-const normalizeImage = (image: LayoutImageLike | (LayoutImageLike & { processedWidth?: number; processedHeight?: number }) | null) => {
-  if (!image) return null
-  return {
-    width: image.processedWidth ?? image.width,
-    height: image.processedHeight ?? image.height,
-  }
-}
-
-const pickTargetWidth = (
-  imageA: LayoutImageLike | (LayoutImageLike & { processedWidth?: number }) | null,
-  imageB: LayoutImageLike | (LayoutImageLike & { processedWidth?: number }) | null,
-) => {
-  const widths = [imageA?.processedWidth ?? imageA?.width ?? 0, imageB?.processedWidth ?? imageB?.width ?? 0].filter((w) => w > 0)
-  if (widths.length === 0) {
-    return 1080
-  }
-  return Math.min(...widths)
 }
 
 export const calculateCompositePlan = (
@@ -198,48 +158,96 @@ export const calculateCompositePlan = (
   imageB: LayoutImageLike | (LayoutImageLike & { processedWidth?: number; processedHeight?: number }) | null,
   coverRatio: number,
 ): CompositePlan | null => {
-  if (!imageA && !imageB) return null
+  for (let i = 0; i < WIDTH_CANDIDATES.length; i++) {
+    const width = WIDTH_CANDIDATES[i]
+    const plan = buildPlanForWidth(imageA, imageB, coverRatio, width)
+    if (!plan) continue
+    if (plan.scaleFactor >= MIN_SCALE || i === WIDTH_CANDIDATES.length - 1) {
+      return plan
+    }
+  }
+  return null
+}
 
-  const targetWidth = pickTargetWidth(imageA, imageB)
+export const calculatePreviewLayout = (
+  imageA: LayoutImageLike | null,
+  imageB: LayoutImageLike | null,
+  coverRatio: number,
+  previewWidth: number,
+): PreviewLayout => {
+  const plan = calculateCompositePlan(imageA, imageB, coverRatio)
+  if (!plan) {
+    const previewHeight = Math.round(previewWidth * TARGET_RATIO)
+    return {
+      previewWidth,
+      previewHeight,
+      whiteTop: 0,
+      whiteBottom: 0,
+      gapHeight: 0,
+      coverHeight: 0,
+      effectHeight: 0,
+      coverStart: 0,
+      effectStart: 0,
+      contentWidth: previewWidth,
+      sidePadding: 0,
+    }
+  }
+
+  const scale = previewWidth / plan.targetWidth
+  return {
+    previewWidth,
+    previewHeight: plan.targetHeight * scale,
+    whiteTop: plan.whiteTop * scale,
+    whiteBottom: plan.whiteBottom * scale,
+    gapHeight: plan.gapHeight * scale,
+    coverHeight: plan.coverHeight * scale,
+    effectHeight: plan.effectHeight * scale,
+    coverStart: plan.coverStart * scale,
+    effectStart: plan.effectStart * scale,
+    contentWidth: plan.contentWidth * scale,
+    sidePadding: plan.sidePadding * scale,
+  }
+}
+
+export const calculateCompositeLayout = (
+  imageA: LayoutImageLike | null,
+  imageB: LayoutImageLike | null,
+  targetWidth: number,
+  coverRatio: number,
+): CompositeLayout => {
   const normalizedA = normalizeImage(imageA)
   const normalizedB = normalizeImage(imageB)
-  const layout = calculateCompositeLayout(normalizedA, normalizedB, targetWidth, coverRatio)
-
-  return {
+  const plan = buildPlanForWidth(normalizedA, normalizedB, coverRatio, targetWidth) ?? {
     targetWidth,
-    targetHeight: layout.totalHeight,
-    whiteTop: layout.whiteTop,
-    whiteBottom: layout.whiteBottom,
-    gapHeight: layout.gapHeight,
-    coverHeight: layout.coverHeight,
-    effectHeight: layout.effectHeight,
-    coverStart: layout.coverStart,
-    effectStart: layout.effectStart,
+    targetHeight: Math.round(targetWidth * TARGET_RATIO),
+    whiteTop: 0,
+    whiteBottom: 0,
+    gapHeight: 0,
+    coverHeight: 0,
+    effectHeight: 0,
+    coverStart: 0,
+    effectStart: 0,
     contentWidth: targetWidth,
     sidePadding: 0,
     scaleFactor: 1,
   }
-}
 
-export const calculatePreviewLayout = (
-  imageA: LayoutImageLike | (LayoutImageLike & { processedWidth?: number; processedHeight?: number }) | null,
-  imageB: LayoutImageLike | (LayoutImageLike & { processedWidth?: number; processedHeight?: number }) | null,
-  coverRatio: number,
-  previewWidth: number,
-): PreviewLayout => {
-  const normalizedA = normalizeImage(imageA)
-  const normalizedB = normalizeImage(imageB)
-  const layout = calculateCompositeLayout(normalizedA, normalizedB, previewWidth, coverRatio)
+  const scaleA = normalizedA ? (plan.contentWidth / normalizedA.width) : 0
+  const scaleB = normalizedB ? (plan.contentWidth / normalizedB.width) : 0
 
   return {
-    previewWidth,
-    previewHeight: layout.totalHeight,
-    whiteTop: layout.whiteTop,
-    whiteBottom: layout.whiteBottom,
-    gapHeight: layout.gapHeight,
-    coverHeight: layout.coverHeight,
-    effectHeight: layout.effectHeight,
-    coverStart: layout.coverStart,
-    effectStart: layout.effectStart,
+    whiteTop: plan.whiteTop,
+    whiteBottom: plan.whiteBottom,
+    gapHeight: plan.gapHeight,
+    coverHeight: plan.coverHeight,
+    coverStart: plan.coverStart,
+    coverImageOffset: 0,
+    effectStart: plan.effectStart,
+    effectHeight: plan.effectHeight,
+    scaledAHeight: plan.coverHeight,
+    scaledBHeight: plan.effectHeight,
+    totalHeight: plan.targetHeight,
+    scaleA,
+    scaleB,
   }
 }

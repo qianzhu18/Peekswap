@@ -1,8 +1,4 @@
-/**
- * 图片处理工具函数
- */
-
-import { calculateCompositeLayout } from "./layout"
+import { calculateCompositePlan } from "./layout"
 
 export interface ProcessedImage {
   url: string
@@ -52,60 +48,42 @@ export const processImage = async (file: File): Promise<ProcessedImage> => {
   }
 }
 
-/**
- * 合成图片 - 包含白色遮挡区的长图
- * 新增白色遮挡区逻辑，不是简单的图片拼接
- */
 export const composeImages = async (
-  imageA: ProcessedImage,
-  imageB: ProcessedImage,
+  imageA: ProcessedImage | null,
+  imageB: ProcessedImage | null,
   coverRatio: number,
 ): Promise<Blob> => {
-  const safeBWidth = imageB.width > 0 ? imageB.width : imageA.width
-  const targetWidth = Math.min(imageA.width, safeBWidth)
-  const layout = calculateCompositeLayout(imageA, imageB, targetWidth, coverRatio)
-  const canvasHeight = Math.max(layout.totalHeight, 1)
+  const plan = calculateCompositePlan(imageA, imageB, coverRatio)
+  if (!plan) {
+    throw new Error("请至少上传一张图片")
+  }
 
   const canvas = document.createElement("canvas")
-  canvas.width = targetWidth
-  canvas.height = canvasHeight
+  canvas.width = plan.targetWidth
+  canvas.height = plan.targetHeight
   const ctx = canvas.getContext("2d")!
 
-  // 填充白色背景
   ctx.fillStyle = "#FFFFFF"
-  ctx.fillRect(0, 0, targetWidth, canvasHeight)
+  ctx.fillRect(0, 0, plan.targetWidth, plan.targetHeight)
 
-  // 加载图片
-  const imgAElement = await loadImage(imageA.url)
-  const imgBElement = await loadImage(imageB.url)
-
-  if (layout.effectHeight > 0 && layout.scaleB > 0) {
+  const drawImage = async (imgData: ProcessedImage | null, destY: number, destHeight: number) => {
+    if (!imgData || destHeight <= 0) return
+    const bitmap = await loadImage(imgData.url)
     ctx.drawImage(
-      imgBElement,
+      bitmap,
       0,
       0,
-      imageB.width,
-      imageB.height,
-      0,
-      layout.effectStart,
-      targetWidth,
-      layout.effectHeight,
+      imgData.width,
+      imgData.height,
+      plan.sidePadding,
+      destY,
+      plan.contentWidth,
+      destHeight,
     )
   }
 
-  if (layout.coverHeight > 0) {
-    ctx.drawImage(
-      imgAElement,
-      0,
-      0,
-      imageA.width,
-      imageA.height,
-      0,
-      layout.coverStart,
-      targetWidth,
-      layout.coverHeight,
-    )
-  }
+  await drawImage(imageA, plan.coverStart, plan.coverHeight)
+  await drawImage(imageB, plan.effectStart, plan.effectHeight)
 
   return new Promise((resolve) => {
     canvas.toBlob(
