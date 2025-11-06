@@ -64,68 +64,44 @@ export default function PreviewSection({ activeTab, onTabChange }: PreviewSectio
         )
       }
 
-      const needsCrop = layout.scaledAHeight > layout.coverHeight
-      const offsetTop = !needsCrop ? Math.max(layout.coverImageOffset, 0) : 0
-
       return (
         <div
-          className="relative w-full overflow-hidden"
+          className="w-full"
           style={{
             height: `${layout.coverHeight}px`,
             backgroundColor: "#ffffff",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
           }}
         >
           <img
             src={imageA.url}
             alt="Cover"
-            className="absolute left-0 right-0 mx-auto"
             style={{
               width: "100%",
-              height: needsCrop ? "100%" : "auto",
-              top: `${offsetTop}px`,
-              objectFit: needsCrop ? "cover" : "contain",
-              objectPosition: "center",
+              height: "auto",
+              objectFit: "contain",
             }}
           />
         </div>
       )
     }
 
-    const renderTopEffect = () => {
-      if (!imageB || layout.topHeight <= 0) {
+    const renderEffect = () => {
+      if (!imageB || !layout.effectHeight) {
         return null
       }
 
       return (
-        <img
-          src={imageB.url}
-          alt="Effect top"
-          className="w-full"
-          style={{
-            height: `${layout.topHeight}px`,
-            objectFit: "cover",
-            objectPosition: "top center",
-          }}
-        />
-      )
-    }
-
-    const renderBottomEffect = () => {
-      if (!imageB || layout.bottomHeight <= 0) {
-        return null
-      }
-
-      return (
-        <img
-          src={imageB.url}
-          alt="Effect bottom"
-          className="w-full"
-          style={{
-            height: `${layout.bottomHeight}px`,
-            objectFit: "cover",
-            objectPosition: "bottom center",
-          }}
-        />
+        <div className="w-full" style={{ height: `${layout.effectHeight}px`, backgroundColor: "#ffffff" }}>
+          <img
+            src={imageB.url}
+            alt="Effect"
+            className="w-full h-full object-cover"
+            style={{ objectPosition: "center" }}
+          />
+        </div>
       )
     }
 
@@ -149,11 +125,13 @@ export default function PreviewSection({ activeTab, onTabChange }: PreviewSectio
             />
           )}
 
-          {renderTopEffect()}
-
           {renderCover()}
 
-          {renderBottomEffect()}
+          {layout.gapHeight > 0 && layout.effectHeight > 0 && (
+            <div style={{ height: `${layout.gapHeight}px`, backgroundColor: "#ffffff" }} />
+          )}
+
+          {renderEffect()}
 
           {layout.whiteBottom > 0 && (
             <div

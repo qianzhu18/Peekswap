@@ -6,12 +6,12 @@ export interface LayoutImageLike {
 export interface CompositeLayout {
   whiteTop: number
   whiteBottom: number
-  topHeight: number
+  gapHeight: number
   coverHeight: number
-  bottomHeight: number
   coverStart: number
   coverImageOffset: number
   effectStart: number
+  effectHeight: number
   scaledAHeight: number
   scaledBHeight: number
   totalHeight: number
@@ -19,10 +19,10 @@ export interface CompositeLayout {
   scaleB: number
 }
 
-const WHITE_PADDING_RATIO = 0.95
-const WHITE_PADDING_MIN = 360
-const MIN_COVER_RATIO = 0.6
-const MIN_COVER_PX = 120
+const WHITE_BOTTOM_RATIO = 1.1
+const WHITE_PADDING_MIN = 420
+const GAP_RATIO = 0.24
+const GAP_MIN = 160
 
 const clampPositive = (value: number) => Math.max(0, Math.round(value))
 
@@ -58,32 +58,45 @@ export const calculateCompositeLayout = (
   const scaledAHeight = imageA ? clampPositive(imageA.height * scaleA) : 0
   const scaledBHeight = imageB ? clampPositive(imageB.height * scaleB) : 0
 
-  const whitePadding = Math.max(
-    clampPositive(targetWidth * WHITE_PADDING_RATIO),
+  const whiteBottom = Math.max(
+    clampPositive(targetWidth * WHITE_BOTTOM_RATIO),
     WHITE_PADDING_MIN,
   )
 
-  if (!imageB || scaledBHeight === 0) {
-    const coverBase = Math.max(
-      clampPositive(targetWidth * MIN_COVER_RATIO),
-      MIN_COVER_PX,
-    )
-    const coverHeight = Math.max(coverBase, scaledAHeight)
-    const totalHeight = whitePadding * 2 + coverHeight
-    const coverStart = whitePadding
-    const coverImageOffset = imageA && scaledAHeight < coverHeight
-      ? clampPositive((coverHeight - scaledAHeight) / 2)
-      : 0
+  const gapHeight = imageA && imageB
+    ? Math.max(clampPositive(targetWidth * GAP_RATIO), GAP_MIN)
+    : 0
 
+  if (!imageA && !imageB) {
     return {
-      whiteTop: whitePadding,
-      whiteBottom: whitePadding,
-      topHeight: 0,
-      coverHeight,
-      bottomHeight: 0,
+      whiteTop: whiteBottom,
+      whiteBottom,
+      gapHeight: 0,
+      coverHeight: 0,
+      coverStart: whiteBottom,
+      coverImageOffset: 0,
+      effectStart: whiteBottom,
+      effectHeight: 0,
+      scaledAHeight: 0,
+      scaledBHeight: 0,
+      totalHeight: whiteBottom * 2,
+      scaleA,
+      scaleB,
+    }
+  }
+
+  if (!imageB || scaledBHeight === 0) {
+    const coverStart = whiteBottom
+    const totalHeight = whiteBottom * 2 + scaledAHeight
+    return {
+      whiteTop: whiteBottom,
+      whiteBottom,
+      gapHeight: 0,
+      coverHeight: scaledAHeight,
       coverStart,
-      coverImageOffset,
-      effectStart: coverStart + coverHeight,
+      coverImageOffset: 0,
+      effectStart: coverStart + scaledAHeight,
+      effectHeight: 0,
       scaledAHeight,
       scaledBHeight: 0,
       totalHeight,
@@ -92,37 +105,40 @@ export const calculateCompositeLayout = (
     }
   }
 
-  const desiredCoverFromRatio = clampPositive(scaledBHeight * coverRatio)
-  const minimumCover = Math.max(
-    desiredCoverFromRatio,
-    clampPositive(targetWidth * MIN_COVER_RATIO),
-    MIN_COVER_PX,
-  )
+  if (!imageA || scaledAHeight === 0) {
+    const coverStart = whiteBottom
+    const totalHeight = whiteBottom * 2 + scaledBHeight
+    return {
+      whiteTop: whiteBottom,
+      whiteBottom,
+      gapHeight: 0,
+      coverHeight: 0,
+      coverStart,
+      coverImageOffset: 0,
+      effectStart: coverStart,
+      effectHeight: scaledBHeight,
+      scaledAHeight: 0,
+      scaledBHeight,
+      totalHeight,
+      scaleA: 0,
+      scaleB,
+    }
+  }
 
-  const coverHeight = Math.min(Math.max(minimumCover, scaledAHeight), scaledBHeight)
-  const remaining = Math.max(scaledBHeight - coverHeight, 0)
-  const topHeight = Math.floor(remaining / 2)
-  const bottomHeight = remaining - topHeight
-
-  const whiteTop = whitePadding
-  const whiteBottom = whitePadding
-  const coverStart = whiteTop + topHeight
-  const effectStart = whiteTop
-  const totalHeight = whiteTop + topHeight + coverHeight + bottomHeight + whiteBottom
-
-  const coverImageOffset = imageA && scaledAHeight < coverHeight
-    ? clampPositive((coverHeight - scaledAHeight) / 2)
-    : 0
+  const whiteTop = whiteBottom + gapHeight + scaledBHeight
+  const coverStart = whiteTop
+  const effectStart = coverStart + scaledAHeight + gapHeight
+  const totalHeight = whiteTop + scaledAHeight + gapHeight + scaledBHeight + whiteBottom
 
   return {
     whiteTop,
     whiteBottom,
-    topHeight,
-    coverHeight,
-    bottomHeight,
+    gapHeight,
+    coverHeight: scaledAHeight,
     coverStart,
-    coverImageOffset,
-    effectStart: coverStart + coverHeight,
+    coverImageOffset: 0,
+    effectStart,
+    effectHeight: scaledBHeight,
     scaledAHeight,
     scaledBHeight,
     totalHeight,

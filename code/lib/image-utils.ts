@@ -79,79 +79,32 @@ export const composeImages = async (
   const imgAElement = await loadImage(imageA.url)
   const imgBElement = await loadImage(imageB.url)
 
-  if (layout.scaledBHeight > 0 && layout.scaleB > 0) {
-    const topDestY = layout.whiteTop
-    const bottomDestY = layout.coverStart + layout.coverHeight
-
-    const scaleB = layout.scaleB || (targetWidth / (safeBWidth || 1))
-    const clampSource = (value: number) => Math.min(Math.max(value, 0), imageB.height)
-
-    if (layout.topHeight > 0) {
-      const topSourceHeight = clampSource(layout.topHeight / scaleB)
-      if (topSourceHeight > 0) {
-        ctx.drawImage(
-          imgBElement,
-          0,
-          0,
-          imageB.width,
-          topSourceHeight,
-          0,
-          topDestY,
-          targetWidth,
-          layout.topHeight,
-        )
-      }
-    }
-
-    if (layout.bottomHeight > 0) {
-      const bottomSourceHeight = clampSource(layout.bottomHeight / scaleB)
-      if (bottomSourceHeight > 0) {
-        ctx.drawImage(
-          imgBElement,
-          0,
-          imageB.height - bottomSourceHeight,
-          imageB.width,
-          bottomSourceHeight,
-          0,
-          bottomDestY,
-          targetWidth,
-          layout.bottomHeight,
-        )
-      }
-    }
+  if (layout.effectHeight > 0 && layout.scaleB > 0) {
+    ctx.drawImage(
+      imgBElement,
+      0,
+      0,
+      imageB.width,
+      imageB.height,
+      0,
+      layout.effectStart,
+      targetWidth,
+      layout.effectHeight,
+    )
   }
 
   if (layout.coverHeight > 0) {
-    const scaleA = layout.scaleA || (targetWidth / imageA.width)
-    const scaledAHeight = Math.max(Math.round(imageA.height * scaleA), 0)
-    let sourceAY = 0
-    let sourceAHeight = imageA.height
-    let destAHeight = layout.coverHeight
-    let destAY = layout.coverStart
-
-    if (scaledAHeight <= layout.coverHeight && scaledAHeight > 0) {
-      destAHeight = scaledAHeight
-      destAY = layout.coverStart + layout.coverImageOffset
-    } else if (scaledAHeight > 0) {
-      const cropRatio = layout.coverHeight / scaledAHeight
-      const croppedHeight = Math.max(Math.round(imageA.height * cropRatio), 1)
-      sourceAY = Math.floor((imageA.height - croppedHeight) / 2)
-      sourceAHeight = croppedHeight
-    }
-
-    if (destAHeight > 0) {
-      ctx.drawImage(
-        imgAElement,
-        0,
-        sourceAY,
-        imageA.width,
-        sourceAHeight,
-        0,
-        destAY,
-        targetWidth,
-        destAHeight,
-      )
-    }
+    ctx.drawImage(
+      imgAElement,
+      0,
+      0,
+      imageA.width,
+      imageA.height,
+      0,
+      layout.coverStart,
+      targetWidth,
+      layout.coverHeight,
+    )
   }
 
   return new Promise((resolve) => {
