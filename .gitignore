@@ -7,6 +7,9 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
+# Root dependencies
+node_modules/
+
 # Dependency directories
 code/node_modules/
 code/.pnp/

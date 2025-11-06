@@ -1,0 +1,12 @@
+{
+  "name": "peekswap-root",
+  "version": "0.0.0",
+  "private": true,
+  "packageManager": "pnpm@10.5.0",
+  "workspaces": [
+    "code"
+  ],
+  "dependencies": {
+    "next": "16.0.0"
+  }
+}
