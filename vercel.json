@@ -1,0 +1,8 @@
+{
+  "version": 2,
+  "framework": "nextjs",
+  "installCommand": "cd code && pnpm install --frozen-lockfile",
+  "buildCommand": "cd code && pnpm build",
+  "outputDirectory": "code/.next",
+  "devCommand": "cd code && pnpm dev -- --hostname 0.0.0.0 --port 3000"
+}
