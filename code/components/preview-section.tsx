@@ -4,7 +4,7 @@ import { useMemo, type CSSProperties } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card } from "@/components/ui/card"
 import useImageStore from "@/lib/store"
-import { calculatePreviewLayout } from "@/lib/layout"
+import { calculateCompositeLayout } from "@/lib/layout"
 
 interface PreviewSectionProps {
   activeTab: "preview" | "full"
@@ -18,10 +18,10 @@ export default function PreviewSection({ activeTab, onTabChange }: PreviewSectio
   const previewWindowHeight = 288
 
   const layout = useMemo(
-    () => calculatePreviewLayout(imageA, imageB, coverRatio, previewWidth),
+    () => calculateCompositeLayout(imageA, imageB, previewWidth, coverRatio),
     [imageA, imageB, coverRatio],
   )
-  const centerOffset = Math.max(layout.previewHeight / 2 - previewWindowHeight / 2, 0)
+  const centerOffset = Math.max(layout.totalHeight / 2 - previewWindowHeight / 2, 0)
 
   const renderComposite = (isPreviewWindow: boolean) => {
     if (!imageA && !imageB) {
@@ -66,10 +66,9 @@ export default function PreviewSection({ activeTab, onTabChange }: PreviewSectio
 
       return (
         <div
+          className="w-full"
           style={{
-            width: `${layout.contentWidth}px`,
             height: `${layout.coverHeight}px`,
-            margin: "0 auto",
             backgroundColor: "#ffffff",
             display: "flex",
             alignItems: "center",
@@ -95,23 +94,12 @@ export default function PreviewSection({ activeTab, onTabChange }: PreviewSectio
       }
 
       return (
-        <div
-          className="w-full"
-          style={{
-            height: `${layout.effectHeight}px`,
-            backgroundColor: "#ffffff",
-            display: "flex",
-            justifyContent: "center",
-          }}
-        >
+        <div className="w-full" style={{ height: `${layout.effectHeight}px`, backgroundColor: "#ffffff" }}>
           <img
             src={imageB.url}
             alt="Effect"
-            className="h-full object-cover"
-            style={{
-              width: `${layout.contentWidth}px`,
-              objectPosition: "center",
-            }}
+            className="w-full h-full object-cover"
+            style={{ objectPosition: "center" }}
           />
         </div>
       )
@@ -122,7 +110,7 @@ export default function PreviewSection({ activeTab, onTabChange }: PreviewSectio
         <div
           className="w-full"
           style={{
-            height: `${layout.previewHeight}px`,
+            height: `${layout.totalHeight}px`,
             transform: isPreviewWindow ? `translateY(-${centerOffset}px)` : undefined,
             transition: "transform 0.2s ease",
             backgroundColor: "#ffffff",

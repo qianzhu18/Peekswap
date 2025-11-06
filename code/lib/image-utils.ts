@@ -2,16 +2,13 @@
  * 图片处理工具函数
  */
 
-import { calculateCompositePlan } from "./layout"
+import { calculateCompositeLayout } from "./layout"
 
 export interface ProcessedImage {
   url: string
-  originalUrl: string
   name: string
   width: number
   height: number
-  processedWidth: number
-  processedHeight: number
   size: number
 }
 
@@ -37,141 +34,20 @@ export const loadImage = (url: string): Promise<HTMLImageElement> => {
   })
 }
 
-const WHITE_THRESHOLD = 245
-const WHITE_RATIO = 0.95
-const MIN_BAND = 80
-const SAFE_MARGIN = 30
-const MAX_TRIM_RATIO = 0.3
-const MIN_DIMENSION = 256
-
-interface TrimResult {
-  url: string
-  width: number
-  height: number
-}
-
-const isWhitePixel = (r: number, g: number, b: number) => r >= WHITE_THRESHOLD && g >= WHITE_THRESHOLD && b >= WHITE_THRESHOLD
-
-const smartTrimImage = async (img: HTMLImageElement): Promise<TrimResult | null> => {
-  const canvas = document.createElement("canvas")
-  canvas.width = img.width
-  canvas.height = img.height
-  const ctx = canvas.getContext("2d")!
-  ctx.drawImage(img, 0, 0)
-
-  const { width, height } = canvas
-  const imageData = ctx.getImageData(0, 0, width, height).data
-
-  const rowIsWhite = (y: number) => {
-    let whitePixels = 0
-    for (let x = 0; x < width; x++) {
-      const idx = (y * width + x) * 4
-      if (isWhitePixel(imageData[idx], imageData[idx + 1], imageData[idx + 2])) {
-        whitePixels++
-      }
-    }
-    return whitePixels / width >= WHITE_RATIO
-  }
-
-  const colIsWhite = (x: number) => {
-    let whitePixels = 0
-    for (let y = 0; y < height; y++) {
-      const idx = (y * width + x) * 4
-      if (isWhitePixel(imageData[idx], imageData[idx + 1], imageData[idx + 2])) {
-        whitePixels++
-      }
-    }
-    return whitePixels / height >= WHITE_RATIO
-  }
-
-  let topBand = 0
-  while (topBand < height && rowIsWhite(topBand)) {
-    topBand++
-  }
-
-  let bottomBand = 0
-  while (bottomBand < height && rowIsWhite(height - 1 - bottomBand)) {
-    bottomBand++
-  }
-
-  let leftBand = 0
-  while (leftBand < width && colIsWhite(leftBand)) {
-    leftBand++
-  }
-
-  let rightBand = 0
-  while (rightBand < width && colIsWhite(width - 1 - rightBand)) {
-    rightBand++
-  }
-
-  const cropTop = topBand >= MIN_BAND ? Math.max(0, topBand - SAFE_MARGIN) : 0
-  const cropBottom = bottomBand >= MIN_BAND ? Math.max(0, bottomBand - SAFE_MARGIN) : 0
-  const cropLeft = leftBand >= MIN_BAND ? Math.max(0, leftBand - SAFE_MARGIN) : 0
-  const cropRight = rightBand >= MIN_BAND ? Math.max(0, rightBand - SAFE_MARGIN) : 0
-
-  const croppedWidth = width - cropLeft - cropRight
-  const croppedHeight = height - cropTop - cropBottom
-
-  const originalArea = width * height
-  const croppedArea = croppedWidth * croppedHeight
-
-  const tooSmall = croppedWidth < MIN_DIMENSION || croppedHeight < MIN_DIMENSION
-  const trimmedTooMuch = croppedArea < originalArea * (1 - MAX_TRIM_RATIO)
-
-  if (tooSmall || trimmedTooMuch || croppedWidth <= 0 || croppedHeight <= 0) {
-    return null
-  }
-
-  const outputCanvas = document.createElement("canvas")
-  outputCanvas.width = croppedWidth
-  outputCanvas.height = croppedHeight
-  const outputCtx = outputCanvas.getContext("2d")!
-  outputCtx.drawImage(canvas, cropLeft, cropTop, croppedWidth, croppedHeight, 0, 0, croppedWidth, croppedHeight)
-
-  const blob = await new Promise<Blob | null>((resolve) => outputCanvas.toBlob((b) => resolve(b), "image/png", 0.95))
-  if (!blob) {
-    return null
-  }
-
-  return {
-    url: URL.createObjectURL(blob),
-    width: croppedWidth,
-    height: croppedHeight,
-  }
-}
-
 export const processImage = async (file: File): Promise<ProcessedImage> => {
   const validation = await validateImage(file)
   if (!validation.valid) {
     throw new Error(validation.error)
   }
 
-  const originalUrl = URL.createObjectURL(file)
-  const img = await loadImage(originalUrl)
-
-  const trimmed = await smartTrimImage(img)
-
-  if (!trimmed) {
-    return {
-      url: originalUrl,
-      originalUrl,
-      name: file.name,
-      width: img.width,
-      height: img.height,
-      processedWidth: img.width,
-      processedHeight: img.height,
-      size: file.size,
-    }
-  }
+  const url = URL.createObjectURL(file)
+  const img = await loadImage(url)
 
   return {
-    url: trimmed.url,
-    originalUrl,
+    url,
     name: file.name,
     width: img.width,
     height: img.height,
-    processedWidth: trimmed.width,
-    processedHeight: trimmed.height,
     size: file.size,
   }
 }
@@ -185,42 +61,50 @@ export const composeImages = async (
   imageB: ProcessedImage,
   coverRatio: number,
 ): Promise<Blob> => {
-  const plan = calculateCompositePlan(imageA, imageB, coverRatio)
-
-  if (!plan) {
-    throw new Error("缺少可用的图片数据")
-  }
+  const safeBWidth = imageB.width > 0 ? imageB.width : imageA.width
+  const targetWidth = Math.min(imageA.width, safeBWidth)
+  const layout = calculateCompositeLayout(imageA, imageB, targetWidth, coverRatio)
+  const canvasHeight = Math.max(layout.totalHeight, 1)
 
   const canvas = document.createElement("canvas")
-  canvas.width = plan.targetWidth
-  canvas.height = plan.targetHeight
+  canvas.width = targetWidth
+  canvas.height = canvasHeight
   const ctx = canvas.getContext("2d")!
 
+  // 填充白色背景
   ctx.fillStyle = "#FFFFFF"
-  ctx.fillRect(0, 0, plan.targetWidth, plan.targetHeight)
+  ctx.fillRect(0, 0, targetWidth, canvasHeight)
 
-  const drawImage = async (imgData: ProcessedImage, url: string, destY: number, destHeight: number) => {
-    if (!imgData || destHeight <= 0) return
-    const bitmap = await loadImage(url)
+  // 加载图片
+  const imgAElement = await loadImage(imageA.url)
+  const imgBElement = await loadImage(imageB.url)
+
+  if (layout.effectHeight > 0 && layout.scaleB > 0) {
     ctx.drawImage(
-      bitmap,
+      imgBElement,
       0,
       0,
-      imgData.processedWidth,
-      imgData.processedHeight,
-      plan.sidePadding,
-      destY,
-      plan.contentWidth,
-      destHeight,
+      imageB.width,
+      imageB.height,
+      0,
+      layout.effectStart,
+      targetWidth,
+      layout.effectHeight,
     )
   }
 
-  if (plan.coverHeight > 0 && imageA) {
-    await drawImage(imageA, imageA.url, plan.coverStart, plan.coverHeight)
-  }
-
-  if (plan.effectHeight > 0 && imageB) {
-    await drawImage(imageB, imageB.url, plan.effectStart, plan.effectHeight)
+  if (layout.coverHeight > 0) {
+    ctx.drawImage(
+      imgAElement,
+      0,
+      0,
+      imageA.width,
+      imageA.height,
+      0,
+      layout.coverStart,
+      targetWidth,
+      layout.coverHeight,
+    )
   }
 
   return new Promise((resolve) => {
