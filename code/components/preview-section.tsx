@@ -75,14 +75,6 @@ export default function PreviewSection({ activeTab, onTabChange }: PreviewSectio
             backgroundColor: "#ffffff",
           }}
         >
-          {imageB && layout.scaleB > 0 && layout.scaledBHeight > 0 && (
-            <img
-              src={imageB.url}
-              alt="Effect middle"
-              className="absolute inset-0 w-full h-full object-cover"
-              style={{ objectPosition: "center" }}
-            />
-          )}
           <img
             src={imageA.url}
             alt="Cover"

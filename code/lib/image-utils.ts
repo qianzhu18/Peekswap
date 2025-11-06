@@ -81,7 +81,6 @@ export const composeImages = async (
 
   if (layout.scaledBHeight > 0 && layout.scaleB > 0) {
     const topDestY = layout.whiteTop
-    const coverDestY = layout.coverStart
     const bottomDestY = layout.coverStart + layout.coverHeight
 
     const scaleB = layout.scaleB || (targetWidth / (safeBWidth || 1))
@@ -100,24 +99,6 @@ export const composeImages = async (
           topDestY,
           targetWidth,
           layout.topHeight,
-        )
-      }
-    }
-
-    if (layout.coverHeight > 0) {
-      const startY = layout.topHeight > 0 ? layout.topHeight / scaleB : 0
-      const coverSourceHeight = clampSource(layout.coverHeight / scaleB)
-      if (coverSourceHeight > 0) {
-        ctx.drawImage(
-          imgBElement,
-          0,
-          startY,
-          imageB.width,
-          coverSourceHeight,
-          0,
-          coverDestY,
-          targetWidth,
-          layout.coverHeight,
         )
       }
     }
