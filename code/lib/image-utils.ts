@@ -79,6 +79,67 @@ export const composeImages = async (
   const imgAElement = await loadImage(imageA.url)
   const imgBElement = await loadImage(imageB.url)
 
+  if (layout.scaledBHeight > 0 && layout.scaleB > 0) {
+    const topDestY = layout.whiteTop
+    const coverDestY = layout.coverStart
+    const bottomDestY = layout.coverStart + layout.coverHeight
+
+    const scaleB = layout.scaleB || (targetWidth / (safeBWidth || 1))
+    const clampSource = (value: number) => Math.min(Math.max(value, 0), imageB.height)
+
+    if (layout.topHeight > 0) {
+      const topSourceHeight = clampSource(layout.topHeight / scaleB)
+      if (topSourceHeight > 0) {
+        ctx.drawImage(
+          imgBElement,
+          0,
+          0,
+          imageB.width,
+          topSourceHeight,
+          0,
+          topDestY,
+          targetWidth,
+          layout.topHeight,
+        )
+      }
+    }
+
+    if (layout.coverHeight > 0) {
+      const startY = layout.topHeight > 0 ? layout.topHeight / scaleB : 0
+      const coverSourceHeight = clampSource(layout.coverHeight / scaleB)
+      if (coverSourceHeight > 0) {
+        ctx.drawImage(
+          imgBElement,
+          0,
+          startY,
+          imageB.width,
+          coverSourceHeight,
+          0,
+          coverDestY,
+          targetWidth,
+          layout.coverHeight,
+        )
+      }
+    }
+
+    if (layout.bottomHeight > 0) {
+      const bottomSourceHeight = clampSource(layout.bottomHeight / scaleB)
+      if (bottomSourceHeight > 0) {
+        ctx.drawImage(
+          imgBElement,
+          0,
+          imageB.height - bottomSourceHeight,
+          imageB.width,
+          bottomSourceHeight,
+          0,
+          bottomDestY,
+          targetWidth,
+          layout.bottomHeight,
+        )
+      }
+    }
+  }
+
   if (layout.coverHeight > 0) {
     const scaleA = layout.scaleA || (targetWidth / imageA.width)
     const scaledAHeight = Math.max(Math.round(imageA.height * scaleA), 0)
@@ -110,20 +171,6 @@ export const composeImages = async (
         destAHeight,
       )
     }
-  }
-
-  if (layout.scaledBHeight > 0) {
-    ctx.drawImage(
-      imgBElement,
-      0,
-      0,
-      imageB.width,
-      imageB.height,
-      0,
-      layout.effectStart,
-      targetWidth,
-      layout.scaledBHeight,
-    )
   }
 
   return new Promise((resolve) => {

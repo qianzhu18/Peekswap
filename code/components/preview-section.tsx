@@ -75,6 +75,14 @@ export default function PreviewSection({ activeTab, onTabChange }: PreviewSectio
             backgroundColor: "#ffffff",
           }}
         >
+          {imageB && layout.scaleB > 0 && layout.scaledBHeight > 0 && (
+            <img
+              src={imageB.url}
+              alt="Effect middle"
+              className="absolute inset-0 w-full h-full object-cover"
+              style={{ objectPosition: "center" }}
+            />
+          )}
           <img
             src={imageA.url}
             alt="Cover"
@@ -91,24 +99,41 @@ export default function PreviewSection({ activeTab, onTabChange }: PreviewSectio
       )
     }
 
-    const renderEffect = () => {
-      if (!imageB || !layout.scaledBHeight) {
+    const renderTopEffect = () => {
+      if (!imageB || layout.topHeight <= 0) {
         return null
       }
 
       return (
-        <div className="w-full" style={{ height: `${layout.scaledBHeight}px`, overflow: "hidden" }}>
-          <img
-            src={imageB.url}
-            alt="Effect"
-            className="w-full"
-            style={{
-              height: "100%",
-              objectFit: "cover",
-              objectPosition: "center",
-            }}
-          />
-        </div>
+        <img
+          src={imageB.url}
+          alt="Effect top"
+          className="w-full"
+          style={{
+            height: `${layout.topHeight}px`,
+            objectFit: "cover",
+            objectPosition: "top center",
+          }}
+        />
+      )
+    }
+
+    const renderBottomEffect = () => {
+      if (!imageB || layout.bottomHeight <= 0) {
+        return null
+      }
+
+      return (
+        <img
+          src={imageB.url}
+          alt="Effect bottom"
+          className="w-full"
+          style={{
+            height: `${layout.bottomHeight}px`,
+            objectFit: "cover",
+            objectPosition: "bottom center",
+          }}
+        />
       )
     }
 
@@ -132,18 +157,11 @@ export default function PreviewSection({ activeTab, onTabChange }: PreviewSectio
             />
           )}
 
+          {renderTopEffect()}
+
           {renderCover()}
 
-          {layout.gapHeight > 0 && layout.scaledBHeight > 0 && (
-            <div
-              style={{
-                height: `${layout.gapHeight}px`,
-                backgroundColor: "#ffffff",
-              }}
-            />
-          )}
-
-          {renderEffect()}
+          {renderBottomEffect()}
 
           {layout.whiteBottom > 0 && (
             <div
