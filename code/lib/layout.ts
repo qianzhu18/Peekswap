@@ -19,6 +19,33 @@ export interface CompositeLayout {
   scaleB: number
 }
 
+export interface CompositePlan {
+  targetWidth: number
+  targetHeight: number
+  whiteTop: number
+  whiteBottom: number
+  gapHeight: number
+  coverHeight: number
+  effectHeight: number
+  coverStart: number
+  effectStart: number
+  contentWidth: number
+  sidePadding: number
+  scaleFactor: number
+}
+
+export interface PreviewLayout {
+  previewWidth: number
+  previewHeight: number
+  whiteTop: number
+  whiteBottom: number
+  gapHeight: number
+  coverHeight: number
+  effectHeight: number
+  coverStart: number
+  effectStart: number
+}
+
 const WHITE_BOTTOM_RATIO = 1.1
 const WHITE_PADDING_MIN = 420
 const GAP_RATIO = 0.24
@@ -144,5 +171,75 @@ export const calculateCompositeLayout = (
     totalHeight,
     scaleA,
     scaleB,
+  }
+}
+
+const normalizeImage = (image: LayoutImageLike | (LayoutImageLike & { processedWidth?: number; processedHeight?: number }) | null) => {
+  if (!image) return null
+  return {
+    width: image.processedWidth ?? image.width,
+    height: image.processedHeight ?? image.height,
+  }
+}
+
+const pickTargetWidth = (
+  imageA: LayoutImageLike | (LayoutImageLike & { processedWidth?: number }) | null,
+  imageB: LayoutImageLike | (LayoutImageLike & { processedWidth?: number }) | null,
+) => {
+  const widths = [imageA?.processedWidth ?? imageA?.width ?? 0, imageB?.processedWidth ?? imageB?.width ?? 0].filter((w) => w > 0)
+  if (widths.length === 0) {
+    return 1080
+  }
+  return Math.min(...widths)
+}
+
+export const calculateCompositePlan = (
+  imageA: LayoutImageLike | (LayoutImageLike & { processedWidth?: number; processedHeight?: number }) | null,
+  imageB: LayoutImageLike | (LayoutImageLike & { processedWidth?: number; processedHeight?: number }) | null,
+  coverRatio: number,
+): CompositePlan | null => {
+  if (!imageA && !imageB) return null
+
+  const targetWidth = pickTargetWidth(imageA, imageB)
+  const normalizedA = normalizeImage(imageA)
+  const normalizedB = normalizeImage(imageB)
+  const layout = calculateCompositeLayout(normalizedA, normalizedB, targetWidth, coverRatio)
+
+  return {
+    targetWidth,
+    targetHeight: layout.totalHeight,
+    whiteTop: layout.whiteTop,
+    whiteBottom: layout.whiteBottom,
+    gapHeight: layout.gapHeight,
+    coverHeight: layout.coverHeight,
+    effectHeight: layout.effectHeight,
+    coverStart: layout.coverStart,
+    effectStart: layout.effectStart,
+    contentWidth: targetWidth,
+    sidePadding: 0,
+    scaleFactor: 1,
+  }
+}
+
+export const calculatePreviewLayout = (
+  imageA: LayoutImageLike | (LayoutImageLike & { processedWidth?: number; processedHeight?: number }) | null,
+  imageB: LayoutImageLike | (LayoutImageLike & { processedWidth?: number; processedHeight?: number }) | null,
+  coverRatio: number,
+  previewWidth: number,
+): PreviewLayout => {
+  const normalizedA = normalizeImage(imageA)
+  const normalizedB = normalizeImage(imageB)
+  const layout = calculateCompositeLayout(normalizedA, normalizedB, previewWidth, coverRatio)
+
+  return {
+    previewWidth,
+    previewHeight: layout.totalHeight,
+    whiteTop: layout.whiteTop,
+    whiteBottom: layout.whiteBottom,
+    gapHeight: layout.gapHeight,
+    coverHeight: layout.coverHeight,
+    effectHeight: layout.effectHeight,
+    coverStart: layout.coverStart,
+    effectStart: layout.effectStart,
   }
 }

@@ -4,7 +4,7 @@ import { useMemo, type CSSProperties } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card } from "@/components/ui/card"
 import useImageStore from "@/lib/store"
-import { calculateCompositeLayout } from "@/lib/layout"
+import { calculatePreviewLayout } from "@/lib/layout"
 
 interface PreviewSectionProps {
   activeTab: "preview" | "full"
@@ -18,10 +18,23 @@ export default function PreviewSection({ activeTab, onTabChange }: PreviewSectio
   const previewWindowHeight = 288
 
   const layout = useMemo(
-    () => calculateCompositeLayout(imageA, imageB, previewWidth, coverRatio),
+    () => calculatePreviewLayout(imageA, imageB, coverRatio, previewWidth),
     [imageA, imageB, coverRatio],
   )
-  const centerOffset = Math.max(layout.totalHeight / 2 - previewWindowHeight / 2, 0)
+  const centerOffset = Math.max(layout.previewHeight / 2 - previewWindowHeight / 2, 0)
+  const segmentBreakdown = useMemo(() => {
+    const total = layout.whiteTop + layout.coverHeight + layout.gapHeight + layout.effectHeight + layout.whiteBottom
+    if (!total) return []
+    const segments: { label: string; value: number }[] = []
+    if (layout.coverHeight > 0) segments.push({ label: "第一张图片", value: layout.coverHeight })
+    if (layout.gapHeight > 0) segments.push({ label: "白底间隔", value: layout.gapHeight })
+    if (layout.effectHeight > 0) segments.push({ label: "第二张图片", value: layout.effectHeight })
+    if (layout.whiteBottom > 0) segments.push({ label: "底部白底", value: layout.whiteBottom })
+    return segments.map((segment) => ({
+      ...segment,
+      percent: Math.round((segment.value / total) * 10000) / 100,
+    }))
+  }, [layout.coverHeight, layout.effectHeight, layout.gapHeight, layout.whiteBottom, layout.whiteTop])
 
   const renderComposite = (isPreviewWindow: boolean) => {
     if (!imageA && !imageB) {
@@ -66,9 +79,10 @@ export default function PreviewSection({ activeTab, onTabChange }: PreviewSectio
 
       return (
         <div
-          className="w-full"
           style={{
+            width: `${previewWidth}px`,
             height: `${layout.coverHeight}px`,
+            margin: "0 auto",
             backgroundColor: "#ffffff",
             display: "flex",
             alignItems: "center",
@@ -94,12 +108,23 @@ export default function PreviewSection({ activeTab, onTabChange }: PreviewSectio
       }
 
       return (
-        <div className="w-full" style={{ height: `${layout.effectHeight}px`, backgroundColor: "#ffffff" }}>
+        <div
+          className="w-full"
+          style={{
+            height: `${layout.effectHeight}px`,
+            backgroundColor: "#ffffff",
+            display: "flex",
+            justifyContent: "center",
+          }}
+        >
           <img
             src={imageB.url}
             alt="Effect"
-            className="w-full h-full object-cover"
-            style={{ objectPosition: "center" }}
+            className="h-full object-cover"
+            style={{
+              width: `${previewWidth}px`,
+              objectPosition: "center",
+            }}
           />
         </div>
       )
@@ -110,7 +135,7 @@ export default function PreviewSection({ activeTab, onTabChange }: PreviewSectio
         <div
           className="w-full"
           style={{
-            height: `${layout.totalHeight}px`,
+            height: `${layout.previewHeight}px`,
             transform: isPreviewWindow ? `translateY(-${centerOffset}px)` : undefined,
             transition: "transform 0.2s ease",
             backgroundColor: "#ffffff",
@@ -142,6 +167,19 @@ export default function PreviewSection({ activeTab, onTabChange }: PreviewSectio
             />
           )}
         </div>
+        {segmentBreakdown.length > 0 && (
+          <div className="px-4 py-3 bg-black/20 text-xs text-gray-300 space-y-1">
+            <p className="text-gray-400">分段高度参考（预览尺寸）</p>
+            {segmentBreakdown.map((segment) => (
+              <div key={segment.label} className="flex justify-between">
+                <span>{segment.label}</span>
+                <span>
+                  {Math.round(segment.value)} px · {segment.percent}%
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     )
   }
