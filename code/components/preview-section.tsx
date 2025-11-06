@@ -4,75 +4,23 @@ import { useMemo, type CSSProperties } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card } from "@/components/ui/card"
 import useImageStore from "@/lib/store"
+import { calculateCompositeLayout } from "@/lib/layout"
 
 interface PreviewSectionProps {
   activeTab: "preview" | "full"
   onTabChange: (tab: "preview" | "full") => void
 }
 
-interface LayoutResult {
-  topHeight: number
-  coverHeight: number
-  bottomHeight: number
-  totalHeight: number
-  scaledAHeight: number
-  coverImageOffset: number
-  scaledBHeight: number
-}
-
-const computeLayout = (
-  imageA: { width: number; height: number } | null,
-  imageB: { width: number; height: number } | null,
-  targetWidth: number,
-  coverRatio: number,
-): LayoutResult => {
-  if (!imageA && !imageB) {
-    return { topHeight: 0, coverHeight: 0, bottomHeight: 0, totalHeight: 0, scaledAHeight: 0, coverImageOffset: 0, scaledBHeight: 0 }
-  }
-
-  const safeWidthA = imageA?.width ?? targetWidth
-  const safeWidthB = imageB?.width ?? targetWidth
-  const scaleA = imageA ? targetWidth / (safeWidthA || 1) : 0
-  const scaleB = imageB ? targetWidth / (safeWidthB || 1) : 0
-
-  const scaledAHeight = imageA ? Math.max(Math.round(imageA.height * scaleA), 0) : 0
-  const scaledBHeight = imageB ? Math.max(Math.round(imageB.height * scaleB), 0) : 0
-
-  let coverHeight = scaledAHeight
-  if (imageB && scaledBHeight > 0) {
-    const desiredCover = Math.max(Math.round(scaledBHeight * coverRatio), 40)
-    coverHeight = Math.min(Math.max(desiredCover, scaledAHeight), scaledBHeight)
-  }
-
-  let topHeight = 0
-  let bottomHeight = 0
-  if (imageB && scaledBHeight > coverHeight) {
-    const remaining = Math.max(scaledBHeight - coverHeight, 0)
-    topHeight = Math.floor(remaining / 2)
-    bottomHeight = remaining - topHeight
-  }
-
-  const totalHeight = Math.max(topHeight + coverHeight + bottomHeight, coverHeight)
-  const coverImageOffset = imageA ? Math.round((coverHeight - scaledAHeight) / 2) : 0
-
-  return {
-    topHeight,
-    coverHeight,
-    bottomHeight,
-    totalHeight,
-    scaledAHeight,
-    coverImageOffset,
-    scaledBHeight,
-  }
-}
-
 export default function PreviewSection({ activeTab, onTabChange }: PreviewSectionProps) {
   const { imageA, imageB, coverRatio } = useImageStore()
 
   const previewWidth = 288
-  const previewWindowHeight = 360
+  const previewWindowHeight = 288
 
-  const layout = useMemo(() => computeLayout(imageA, imageB, previewWidth, coverRatio), [imageA, imageB, coverRatio])
+  const layout = useMemo(
+    () => calculateCompositeLayout(imageA, imageB, previewWidth, coverRatio),
+    [imageA, imageB, coverRatio],
+  )
   const centerOffset = Math.max(layout.totalHeight / 2 - previewWindowHeight / 2, 0)
 
   const renderComposite = (isPreviewWindow: boolean) => {
@@ -86,7 +34,9 @@ export default function PreviewSection({ activeTab, onTabChange }: PreviewSectio
 
     if (!imageB) {
       return imageA ? (
-        <img src={imageA.url} alt="Cover" className="w-full h-full object-cover" />
+        <div className="w-full h-full bg-white flex items-center justify-center">
+          <img src={imageA.url} alt="Cover" className="max-w-full max-h-full object-contain" />
+        </div>
       ) : (
         <div className="w-full h-full bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center">
           <p className="text-gray-600 text-sm">等待封面...</p>
@@ -121,8 +71,19 @@ export default function PreviewSection({ activeTab, onTabChange }: PreviewSectio
             height: `${layout.totalHeight}px`,
             transform: isPreviewWindow ? `translateY(-${centerOffset}px)` : undefined,
             transition: "transform 0.2s ease",
+            backgroundColor: "#ffffff",
           }}
         >
+          {layout.whitePadding > 0 && (
+            <div
+              style={{
+                width: "100%",
+                height: `${layout.whitePadding}px`,
+                backgroundColor: "#ffffff",
+              }}
+            />
+          )}
+
           {layout.topHeight > 0 && (
             <img
               src={imageB.url}
@@ -167,6 +128,16 @@ export default function PreviewSection({ activeTab, onTabChange }: PreviewSectio
                 height: `${layout.bottomHeight}px`,
                 objectFit: "cover",
                 objectPosition: "bottom center",
+              }}
+            />
+          )}
+
+          {layout.whitePadding > 0 && (
+            <div
+              style={{
+                width: "100%",
+                height: `${layout.whitePadding}px`,
+                backgroundColor: "#ffffff",
               }}
             />
           )}
