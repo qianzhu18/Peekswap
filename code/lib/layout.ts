@@ -52,7 +52,8 @@ export interface PreviewLayout {
 
 const TARGET_RATIO = 16 / 9
 const WIDTH_CANDIDATES = [1080, 1242, 1440]
-const TOP_WHITE_RATIO = 0.4
+const TOP_WHITE_RATIO_MIN = 0.25
+const TOP_WHITE_RATIO_MAX = 0.6
 const BOTTOM_WHITE_RATIO = 0.15
 const GAP_BASE = 40
 const MIN_SCALE = 0.6
@@ -90,12 +91,13 @@ const buildPlanForWidth = (
   let coverHeight = hasA ? scaleHeightToWidth(normalizedA!, targetWidth) : 0
   let effectHeight = hasB ? scaleHeightToWidth(normalizedB!, targetWidth) : 0
 
-  const topWhiteMin = hasA ? Math.round(targetHeight * TOP_WHITE_RATIO) : Math.round(targetHeight * 0.1)
+  const coverControl = Math.min(Math.max(coverRatio || TOP_WHITE_RATIO_MIN, TOP_WHITE_RATIO_MIN), TOP_WHITE_RATIO_MAX)
+  const topWhiteMin = hasA ? Math.round(targetHeight * coverControl) : Math.round(targetHeight * 0.1)
   const bottomWhiteMin = hasB ? Math.round(targetHeight * BOTTOM_WHITE_RATIO) : Math.round(targetHeight * 0.1)
 
   let topWhite = topWhiteMin
   let bottomWhite = bottomWhiteMin
-  let gapHeight = hasA && hasB ? GAP_BASE : 0
+  let gapHeight = hasA && hasB ? Math.max(0, Math.round(GAP_BASE * (0.5 + (coverControl - 0.4) * 1.5))) : 0
   let scaleFactor = 1
   let contentWidth = targetWidth
   let sidePadding = 0

@@ -21,7 +21,7 @@ export default function ParameterSection() {
         {/* 滑杆 */}
         <div className="space-y-2">
           <div className="flex justify-between items-center">
-            <label className="text-sm text-gray-300">封面区高度占比</label>
+            <label className="text-sm text-gray-300">顶部白底占比</label>
             <span className="text-sm font-bold text-[#2FF0B5] transition-all duration-150">
               {(coverRatio * 100).toFixed(0)}%
             </span>
@@ -30,17 +30,17 @@ export default function ParameterSection() {
           <Slider
             value={[coverRatio * 100]}
             onValueChange={(value) => setCoverRatio(value[0] / 100)}
-            min={15}
-            max={40}
+            min={25}
+            max={55}
             step={1}
             className="w-full"
           />
 
           {/* 刻度标签 */}
           <div className="flex justify-between text-xs text-gray-400 px-1">
-            <span>稳健 (15%)</span>
-            <span>标准 (28%)</span>
-            <span>爆梗 (40%)</span>
+            <span>藏得更深 (25%)</span>
+            <span>标准 (40%)</span>
+            <span>放大胆 (55%)</span>
           </div>
         </div>
 

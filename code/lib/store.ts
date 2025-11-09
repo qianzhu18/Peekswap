@@ -22,7 +22,7 @@ interface ImageStore {
 const useImageStore = create<ImageStore>((set) => ({
   imageA: null,
   imageB: null,
-  coverRatio: 0.28,
+  coverRatio: 0.4,
   setImageA: (data) => set({ imageA: data }),
   setImageB: (data) => set({ imageB: data }),
   setCoverRatio: (ratio) => set({ coverRatio: ratio }),
