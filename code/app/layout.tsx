@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { Geist } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
+import { Toaster } from '@/components/ui/sonner'
 import './globals.css'
 
 const geistSans = Geist({ subsets: ["latin"] })
@@ -23,6 +24,7 @@ export default function RootLayout({
       <body className={`${geistSans.className} antialiased`}>
         {children}
         <Analytics />
+        <Toaster richColors position="top-center" closeButton expand={true} />
       </body>
     </html>
   )

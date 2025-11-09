@@ -100,6 +100,7 @@ export default function DesktopActionBar({ imageA, imageB, coverRatio }: Desktop
           title="刷新槽点"
         >
           <RefreshCw className="w-5 h-5" />
+          <span className="sr-only">刷新槽点</span>
         </Button>
         <Button
           size="lg"
@@ -109,6 +110,7 @@ export default function DesktopActionBar({ imageA, imageB, coverRatio }: Desktop
           title="上线整活"
         >
           <Zap className="w-5 h-5" />
+          <span className="sr-only">上线整活</span>
         </Button>
         <Button
           size="lg"
@@ -118,6 +120,7 @@ export default function DesktopActionBar({ imageA, imageB, coverRatio }: Desktop
           title="拷走彩蛋"
         >
           <Download className="w-5 h-5" />
+          <span className="sr-only">拷走彩蛋</span>
         </Button>
       </div>
 
