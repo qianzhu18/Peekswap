@@ -50,13 +50,14 @@ export interface PreviewLayout {
   sidePadding: number
 }
 
-const TARGET_RATIO = 16 / 9
 const WIDTH_CANDIDATES = [1080, 1242, 1440]
-const TOP_WHITE_RATIO_MIN = 0.25
-const TOP_WHITE_RATIO_MAX = 0.6
-const BOTTOM_WHITE_RATIO = 0.15
-const GAP_BASE = 40
-const MIN_SCALE = 0.05
+const DEFAULT_RATIO = 16 / 9
+const COVER_RATIO_MIN = 0.25
+const COVER_RATIO_MAX = 0.55
+const GAP_RATIO_RANGE = [0.45, 0.8]
+const BOTTOM_WHITE_RATIO_RANGE = [1.2, 2.3]
+const MAX_TARGET_HEIGHT = 6200
+const MIN_CONTENT_WIDTH = 320
 
 const clampPositive = (value: number) => Math.max(0, Math.round(value))
 
@@ -72,6 +73,13 @@ const scaleHeightToWidth = (image: { width: number; height: number }, targetWidt
   return Math.max(1, Math.round((image.height * targetWidth) / image.width))
 }
 
+const mapRange = (value: number, inMin: number, inMax: number, outMin: number, outMax: number) => {
+  if (inMax === inMin) return outMin
+  const clamped = Math.min(Math.max(value, inMin), inMax)
+  const ratio = (clamped - inMin) / (inMax - inMin)
+  return outMin + ratio * (outMax - outMin)
+}
+
 const buildPlanForWidth = (
   imageA: LayoutImageLike | null,
   imageB: LayoutImageLike | null,
@@ -84,70 +92,63 @@ const buildPlanForWidth = (
     return null
   }
 
-  const targetHeight = Math.round(targetWidth * TARGET_RATIO)
   const hasA = !!normalizedA
   const hasB = !!normalizedB
 
-  let coverHeight = hasA ? scaleHeightToWidth(normalizedA!, targetWidth) : 0
-  let effectHeight = hasB ? scaleHeightToWidth(normalizedB!, targetWidth) : 0
-
-  const coverControl = Math.min(Math.max(coverRatio || TOP_WHITE_RATIO_MIN, TOP_WHITE_RATIO_MIN), TOP_WHITE_RATIO_MAX)
-  const topWhiteMin = hasA ? Math.round(targetHeight * coverControl) : Math.round(targetHeight * 0.1)
-  const bottomWhiteMin = hasB ? Math.round(targetHeight * BOTTOM_WHITE_RATIO) : Math.round(targetHeight * 0.1)
-
-  let topWhite = topWhiteMin
-  let bottomWhite = bottomWhiteMin
-  let gapHeight = hasA && hasB ? Math.max(0, Math.round(GAP_BASE * (0.5 + (coverControl - 0.4) * 1.5))) : 0
-  let scaleFactor = 1
   let contentWidth = targetWidth
-  let sidePadding = 0
-
-  const contentHeight = () => coverHeight + gapHeight + effectHeight
-  const totalHeight = () => topWhite + contentHeight() + bottomWhite
-
-  const reduceGapIfNeeded = () => {
-    if (gapHeight === 0) return
-    const excess = totalHeight() - targetHeight
-    if (excess > 0) {
-      const reduction = Math.min(excess, gapHeight)
-      gapHeight -= reduction
-    }
+  if (contentWidth < MIN_CONTENT_WIDTH) {
+    contentWidth = MIN_CONTENT_WIDTH
   }
 
-  reduceGapIfNeeded()
+  const coverHeight = hasA ? scaleHeightToWidth(normalizedA!, contentWidth) : 0
+  const effectHeight = hasB ? scaleHeightToWidth(normalizedB!, contentWidth) : 0
 
-  if (totalHeight() > targetHeight) {
-    const available = targetHeight - topWhite - bottomWhite - gapHeight
-    const content = coverHeight + effectHeight
-    if (available <= 0 || content <= 0) {
-      return null
-    }
-    scaleFactor = Math.max(available / content, MIN_SCALE)
-    coverHeight = Math.max(1, Math.round(coverHeight * scaleFactor))
-    effectHeight = Math.max(1, Math.round(effectHeight * scaleFactor))
-    contentWidth = Math.max(1, Math.round(targetWidth * scaleFactor))
-    sidePadding = Math.max(0, Math.floor((targetWidth - contentWidth) / 2))
+  const coverControl = Math.min(Math.max(coverRatio || COVER_RATIO_MIN, COVER_RATIO_MIN), COVER_RATIO_MAX)
+  const gapRatio = mapRange(coverControl, COVER_RATIO_MIN, COVER_RATIO_MAX, GAP_RATIO_RANGE[0], GAP_RATIO_RANGE[1])
+  const bottomRatio = mapRange(
+    coverControl,
+    COVER_RATIO_MIN,
+    COVER_RATIO_MAX,
+    BOTTOM_WHITE_RATIO_RANGE[0],
+    BOTTOM_WHITE_RATIO_RANGE[1],
+  )
+
+  const topWhite = hasA ? 0 : Math.round(contentWidth * 0.05)
+  const gapHeight = hasA && hasB ? Math.max(40, Math.round(effectHeight * gapRatio)) : 0
+  const bottomWhiteBase = hasB ? Math.round(effectHeight * bottomRatio) : Math.round(contentWidth * 0.8)
+  const bottomWhite = Math.max(Math.round(contentWidth * 0.6), bottomWhiteBase)
+
+  let targetHeight = topWhite + coverHeight + gapHeight + effectHeight + bottomWhite
+  let scaleFactor = 1
+  if (targetHeight > MAX_TARGET_HEIGHT) {
+    scaleFactor = MAX_TARGET_HEIGHT / targetHeight
+    targetHeight = MAX_TARGET_HEIGHT
   }
 
-  if (totalHeight() < targetHeight) {
-    const deficit = targetHeight - totalHeight()
-    const topExtra = Math.round(deficit * 0.7)
-    topWhite += topExtra
-    bottomWhite += deficit - topExtra
+  const scaleValue = (value: number) => {
+    if (value <= 0) return 0
+    return Math.max(1, Math.round(value * scaleFactor))
   }
+
+  const scaledTopWhite = scaleValue(topWhite)
+  const scaledCoverHeight = scaleValue(coverHeight)
+  const scaledGapHeight = scaleValue(gapHeight)
+  const scaledEffectHeight = scaleValue(effectHeight)
+  const scaledBottomWhite = scaleValue(bottomWhite)
+  const scaledWidth = Math.max(MIN_CONTENT_WIDTH, scaleValue(contentWidth))
 
   return {
-    targetWidth,
+    targetWidth: scaledWidth,
     targetHeight,
-    whiteTop: topWhite,
-    whiteBottom: bottomWhite,
-    gapHeight,
-    coverHeight,
-    effectHeight,
-    coverStart: topWhite,
-    effectStart: topWhite + coverHeight + gapHeight,
-    contentWidth,
-    sidePadding,
+    whiteTop: scaledTopWhite,
+    whiteBottom: scaledBottomWhite,
+    gapHeight: scaledGapHeight,
+    coverHeight: scaledCoverHeight,
+    effectHeight: scaledEffectHeight,
+    coverStart: scaledTopWhite,
+    effectStart: scaledTopWhite + scaledCoverHeight + scaledGapHeight,
+    contentWidth: scaledWidth,
+    sidePadding: 0,
     scaleFactor,
   }
 }
@@ -160,8 +161,7 @@ export const calculateCompositePlan = (
   for (let i = 0; i < WIDTH_CANDIDATES.length; i++) {
     const width = WIDTH_CANDIDATES[i]
     const plan = buildPlanForWidth(imageA, imageB, coverRatio, width)
-    if (!plan) continue
-    if (plan.scaleFactor >= MIN_SCALE || i === WIDTH_CANDIDATES.length - 1) {
+    if (plan) {
       return plan
     }
   }
@@ -176,7 +176,7 @@ export const calculatePreviewLayout = (
 ): PreviewLayout => {
   const plan = calculateCompositePlan(imageA, imageB, coverRatio)
   if (!plan) {
-    const previewHeight = Math.round(previewWidth * TARGET_RATIO)
+    const previewHeight = Math.round(previewWidth * DEFAULT_RATIO)
     return {
       previewWidth,
       previewHeight,
@@ -218,7 +218,7 @@ export const calculateCompositeLayout = (
   const normalizedB = normalizeImage(imageB)
   const plan = buildPlanForWidth(normalizedA, normalizedB, coverRatio, targetWidth) ?? {
     targetWidth,
-    targetHeight: Math.round(targetWidth * TARGET_RATIO),
+    targetHeight: Math.round(targetWidth * DEFAULT_RATIO),
     whiteTop: 0,
     whiteBottom: 0,
     gapHeight: 0,
