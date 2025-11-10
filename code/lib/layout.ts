@@ -56,7 +56,7 @@ const TOP_WHITE_RATIO_MIN = 0.25
 const TOP_WHITE_RATIO_MAX = 0.6
 const BOTTOM_WHITE_RATIO = 0.15
 const GAP_BASE = 40
-const MIN_SCALE = 0.6
+const MIN_SCALE = 0.05
 
 const clampPositive = (value: number) => Math.max(0, Math.round(value))
 
@@ -122,10 +122,7 @@ const buildPlanForWidth = (
     if (available <= 0 || content <= 0) {
       return null
     }
-    scaleFactor = available / content
-    if (scaleFactor < MIN_SCALE && hasA && hasB) {
-      return null
-    }
+    scaleFactor = Math.max(available / content, MIN_SCALE)
     coverHeight = Math.max(1, Math.round(coverHeight * scaleFactor))
     effectHeight = Math.max(1, Math.round(effectHeight * scaleFactor))
     contentWidth = Math.max(1, Math.round(targetWidth * scaleFactor))
