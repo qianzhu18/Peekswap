@@ -136,8 +136,8 @@ export default function UploadSection() {
   return (
     <div className="space-y-3">
       <h2 className="text-base font-bold text-[#FFE45C]">整活准备</h2>
-      <ImageCard title="先放封面哄他" subtitle="点击或拖拽上传" image={imageA} type="a" fileInput={fileInputA} />
-      <ImageCard title="再塞彩蛋炸他" subtitle="点击或拖拽上传" image={imageB} type="b" fileInput={fileInputB} />
+      <ImageCard title="先塞隐藏图" subtitle="放在最上面，等他点开才看到" image={imageA} type="a" fileInput={fileInputA} />
+      <ImageCard title="再放封面哄他" subtitle="聊天窗口会优先看到它" image={imageB} type="b" fileInput={fileInputB} />
     </div>
   )
 }

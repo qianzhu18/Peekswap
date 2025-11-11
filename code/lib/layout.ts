@@ -54,12 +54,11 @@ const WIDTH_CANDIDATES = [1080, 1242, 1440]
 const DEFAULT_RATIO = 16 / 9
 const COVER_RATIO_MIN = 0.25
 const COVER_RATIO_MAX = 0.55
-const GAP_RATIO_RANGE = [0.45, 0.8]
-const BOTTOM_WHITE_RATIO_RANGE = [1.2, 2.3]
+const TOP_WHITE_RATIO_RANGE = [0.02, 0.12]
+const GAP_RATIO_RANGE = [0.3, 0.65]
+const BOTTOM_WHITE_RATIO_RANGE = [0.8, 1.6]
 const MAX_TARGET_HEIGHT = 6200
 const MIN_CONTENT_WIDTH = 320
-
-const clampPositive = (value: number) => Math.max(0, Math.round(value))
 
 const normalizeImage = (image: LayoutImageLike | null) => {
   if (!image) return null
@@ -92,18 +91,19 @@ const buildPlanForWidth = (
     return null
   }
 
-  const hasA = !!normalizedA
-  const hasB = !!normalizedB
+  const hasHidden = !!normalizedA
+  const hasCover = !!normalizedB
 
   let contentWidth = targetWidth
   if (contentWidth < MIN_CONTENT_WIDTH) {
     contentWidth = MIN_CONTENT_WIDTH
   }
 
-  const coverHeight = hasA ? scaleHeightToWidth(normalizedA!, contentWidth) : 0
-  const effectHeight = hasB ? scaleHeightToWidth(normalizedB!, contentWidth) : 0
+  const hiddenHeight = hasHidden ? scaleHeightToWidth(normalizedA!, contentWidth) : 0
+  const coverHeight = hasCover ? scaleHeightToWidth(normalizedB!, contentWidth) : 0
 
   const coverControl = Math.min(Math.max(coverRatio || COVER_RATIO_MIN, COVER_RATIO_MIN), COVER_RATIO_MAX)
+  const topWhiteRatio = mapRange(coverControl, COVER_RATIO_MIN, COVER_RATIO_MAX, TOP_WHITE_RATIO_RANGE[0], TOP_WHITE_RATIO_RANGE[1])
   const gapRatio = mapRange(coverControl, COVER_RATIO_MIN, COVER_RATIO_MAX, GAP_RATIO_RANGE[0], GAP_RATIO_RANGE[1])
   const bottomRatio = mapRange(
     coverControl,
@@ -113,12 +113,12 @@ const buildPlanForWidth = (
     BOTTOM_WHITE_RATIO_RANGE[1],
   )
 
-  const topWhite = hasA ? 0 : Math.round(contentWidth * 0.05)
-  const gapHeight = hasA && hasB ? Math.max(40, Math.round(effectHeight * gapRatio)) : 0
-  const bottomWhiteBase = hasB ? Math.round(effectHeight * bottomRatio) : Math.round(contentWidth * 0.8)
-  const bottomWhite = Math.max(Math.round(contentWidth * 0.6), bottomWhiteBase)
+  const topWhite = hasHidden ? Math.round(coverHeight * topWhiteRatio) : Math.round(contentWidth * 0.03)
+  const gapHeight = hasHidden && hasCover ? Math.max(30, Math.round(coverHeight * gapRatio)) : 0
+  const bottomWhiteBase = hasCover ? Math.round(coverHeight * bottomRatio) : Math.round(contentWidth * 0.6)
+  const bottomWhite = Math.max(Math.round(contentWidth * 0.5), bottomWhiteBase)
 
-  let targetHeight = topWhite + coverHeight + gapHeight + effectHeight + bottomWhite
+  let targetHeight = topWhite + hiddenHeight + gapHeight + coverHeight + bottomWhite
   let scaleFactor = 1
   if (targetHeight > MAX_TARGET_HEIGHT) {
     scaleFactor = MAX_TARGET_HEIGHT / targetHeight
@@ -131,11 +131,11 @@ const buildPlanForWidth = (
   }
 
   const scaledTopWhite = scaleValue(topWhite)
-  const scaledCoverHeight = scaleValue(coverHeight)
+  const scaledHiddenHeight = scaleValue(hiddenHeight)
   const scaledGapHeight = scaleValue(gapHeight)
-  const scaledEffectHeight = scaleValue(effectHeight)
+  const scaledCoverHeight = scaleValue(coverHeight)
   const scaledBottomWhite = scaleValue(bottomWhite)
-  const scaledWidth = Math.max(MIN_CONTENT_WIDTH, scaleValue(contentWidth))
+  const scaledWidth = Math.max(MIN_CONTENT_WIDTH, Math.round(contentWidth * scaleFactor))
 
   return {
     targetWidth: scaledWidth,
@@ -144,9 +144,9 @@ const buildPlanForWidth = (
     whiteBottom: scaledBottomWhite,
     gapHeight: scaledGapHeight,
     coverHeight: scaledCoverHeight,
-    effectHeight: scaledEffectHeight,
-    coverStart: scaledTopWhite,
-    effectStart: scaledTopWhite + scaledCoverHeight + scaledGapHeight,
+    effectHeight: scaledHiddenHeight,
+    coverStart: scaledTopWhite + scaledHiddenHeight + scaledGapHeight,
+    effectStart: scaledTopWhite,
     contentWidth: scaledWidth,
     sidePadding: 0,
     scaleFactor,
@@ -243,8 +243,8 @@ export const calculateCompositeLayout = (
     coverImageOffset: 0,
     effectStart: plan.effectStart,
     effectHeight: plan.effectHeight,
-    scaledAHeight: plan.coverHeight,
-    scaledBHeight: plan.effectHeight,
+    scaledAHeight: plan.effectHeight,
+    scaledBHeight: plan.coverHeight,
     totalHeight: plan.targetHeight,
     scaleA,
     scaleB,

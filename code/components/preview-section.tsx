@@ -23,13 +23,13 @@ export default function PreviewSection({ activeTab, onTabChange }: PreviewSectio
   )
   const centerOffset = Math.max(layout.previewHeight / 2 - previewWindowHeight / 2, 0)
   const segmentBreakdown = useMemo(() => {
-    const total = layout.whiteTop + layout.coverHeight + layout.gapHeight + layout.effectHeight + layout.whiteBottom
+    const total = layout.whiteTop + layout.effectHeight + layout.gapHeight + layout.coverHeight + layout.whiteBottom
     if (!total) return []
     const segments: { label: string; value: number }[] = []
     if (layout.whiteTop > 0) segments.push({ label: "顶部白底", value: layout.whiteTop })
-    if (layout.coverHeight > 0) segments.push({ label: "第一张图片", value: layout.coverHeight })
+    if (layout.effectHeight > 0) segments.push({ label: "隐藏图", value: layout.effectHeight })
     if (layout.gapHeight > 0) segments.push({ label: "白底间隔", value: layout.gapHeight })
-    if (layout.effectHeight > 0) segments.push({ label: "第二张图片", value: layout.effectHeight })
+    if (layout.coverHeight > 0) segments.push({ label: "展示图", value: layout.coverHeight })
     if (layout.whiteBottom > 0) segments.push({ label: "底部白底", value: layout.whiteBottom })
     return segments.map((segment) => ({
       ...segment,
@@ -62,8 +62,8 @@ export default function PreviewSection({ activeTab, onTabChange }: PreviewSectio
       })
     }
 
-    const renderCover = () => {
-      if (!layout.coverHeight) {
+    const renderHidden = () => {
+      if (!layout.effectHeight) {
         return null
       }
 
@@ -71,9 +71,48 @@ export default function PreviewSection({ activeTab, onTabChange }: PreviewSectio
         return (
           <div
             className="flex items-center justify-center text-gray-500 text-sm"
+            style={{ height: `${layout.effectHeight}px`, backgroundColor: "#ffffff" }}
+          >
+            等待隐藏图...
+          </div>
+        )
+      }
+
+      return (
+        <div
+          className="w-full"
+          style={{
+            height: `${layout.effectHeight}px`,
+            backgroundColor: "#ffffff",
+            display: "flex",
+            justifyContent: "center",
+          }}
+        >
+          <img
+            src={imageA.url}
+            alt="Hidden"
+            className="h-full object-cover"
+            style={{
+              width: `${layout.contentWidth}px`,
+              objectPosition: "center",
+            }}
+          />
+        </div>
+      )
+    }
+
+    const renderCover = () => {
+      if (!layout.coverHeight) {
+        return null
+      }
+
+      if (!imageB) {
+        return (
+          <div
+            className="flex items-center justify-center text-gray-500 text-sm"
             style={{ height: `${layout.coverHeight}px`, backgroundColor: "#ffffff" }}
           >
-            等待封面...
+            等待封面图...
           </div>
         )
       }
@@ -91,40 +130,12 @@ export default function PreviewSection({ activeTab, onTabChange }: PreviewSectio
           }}
         >
           <img
-            src={imageA.url}
+            src={imageB.url}
             alt="Cover"
             style={{
               width: "100%",
               height: "auto",
               objectFit: "contain",
-            }}
-          />
-        </div>
-      )
-    }
-
-    const renderEffect = () => {
-      if (!imageB || !layout.effectHeight) {
-        return null
-      }
-
-      return (
-        <div
-          className="w-full"
-          style={{
-            height: `${layout.effectHeight}px`,
-            backgroundColor: "#ffffff",
-            display: "flex",
-            justifyContent: "center",
-          }}
-        >
-          <img
-            src={imageB.url}
-            alt="Effect"
-            className="h-full object-cover"
-            style={{
-              width: `${layout.contentWidth}px`,
-              objectPosition: "center",
             }}
           />
         </div>
@@ -151,13 +162,13 @@ export default function PreviewSection({ activeTab, onTabChange }: PreviewSectio
             />
           )}
 
-          {renderCover()}
+          {renderHidden()}
 
-          {layout.gapHeight > 0 && layout.effectHeight > 0 && (
+          {layout.gapHeight > 0 && layout.coverHeight > 0 && layout.effectHeight > 0 && (
             <div style={{ height: `${layout.gapHeight}px`, backgroundColor: "#ffffff" }} />
           )}
 
-          {renderEffect()}
+          {renderCover()}
 
           {layout.whiteBottom > 0 && (
             <div

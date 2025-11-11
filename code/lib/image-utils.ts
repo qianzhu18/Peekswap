@@ -82,8 +82,8 @@ export const composeImages = async (
     )
   }
 
-  await drawImage(imageA, plan.coverStart, plan.coverHeight)
-  await drawImage(imageB, plan.effectStart, plan.effectHeight)
+  await drawImage(imageA, plan.effectStart, plan.effectHeight)
+  await drawImage(imageB, plan.coverStart, plan.coverHeight)
 
   return new Promise((resolve) => {
     canvas.toBlob(
