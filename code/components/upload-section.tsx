@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { X, Upload } from "lucide-react"
 import useImageStore from "@/lib/store"
-import { processImage } from "@/lib/image-utils"
+import { normalizeToNineSixteen, processImage, type ProcessedImage } from "@/lib/image-utils"
 import { useToast } from "@/hooks/use-toast"
 
 export default function UploadSection() {
@@ -15,21 +15,31 @@ export default function UploadSection() {
   const fileInputA = useRef<HTMLInputElement>(null)
   const fileInputB = useRef<HTMLInputElement>(null)
   const [loading, setLoading] = useState<"a" | "b" | null>(null)
+  const [fixing, setFixing] = useState<"a" | "b" | null>(null)
   const { toast } = useToast()
+  const targetAspect = 9 / 16
+
+  const enforceNineSixteen = async (data: ProcessedImage, type: "a" | "b") => {
+    const ratio = data.width / data.height
+    if (Math.abs(ratio - targetAspect) <= 0.01) {
+      return data
+    }
+    const normalized = await normalizeToNineSixteen(data)
+    toast({
+      title: "已自动裁成 9:16",
+      description: `${normalized.width} × ${normalized.height}px`,
+    })
+    return normalized
+  }
 
   const handleFileSelect = async (file: File, type: "a" | "b") => {
     setLoading(type)
     try {
-      const data = await processImage(file)
-      if (type === "a") {
-        setImageA(data)
-      } else {
-        setImageB(data)
-      }
-      toast({
-        title: "上传成功",
-        description: `${data.width} × ${data.height}px`,
-      })
+      let data = await processImage(file)
+      data = await enforceNineSixteen(data, type)
+      if (type === "a") setImageA(data)
+      else setImageB(data)
+      toast({ title: "上传成功", description: `${data.width} × ${data.height}px` })
     } catch (error) {
       toast({
         title: "上传失败",
@@ -56,6 +66,45 @@ export default function UploadSection() {
     const files = e.dataTransfer.files
     if (files.length > 0) {
       handleFileSelect(files[0], type)
+    }
+  }
+
+  const getAspectInfo = (image: ProcessedImage | null) => {
+    if (!image) {
+      return { ratioText: "等待上传", status: "pending", ratioValue: null as number | null }
+    }
+    const ratioValue = image.width / image.height
+    const diff = Math.abs(ratioValue - targetAspect)
+    const ratioText = ratioValue.toFixed(3)
+    if (diff <= 0.01) {
+      return { ratioText, status: "ok", ratioValue }
+    }
+    return { ratioText, status: ratioValue > targetAspect ? "wide" : "tall", ratioValue }
+  }
+
+  const handleNormalize = async (type: "a" | "b") => {
+    const current = type === "a" ? imageA : imageB
+    if (!current) return
+    setFixing(type)
+    try {
+      const normalized = await enforceNineSixteen(current, type)
+      if (type === "a") {
+        setImageA(normalized)
+      } else {
+        setImageB(normalized)
+      }
+      toast({
+        title: "已转成 9:16",
+        description: `${normalized.width} × ${normalized.height}px`,
+      })
+    } catch (error) {
+      toast({
+        title: "处理失败",
+        description: error instanceof Error ? error.message : "转成 9:16 出错了",
+        variant: "destructive",
+      })
+    } finally {
+      setFixing(null)
     }
   }
 
@@ -138,6 +187,53 @@ export default function UploadSection() {
       <h2 className="text-base font-bold text-[#FFE45C]">整活准备</h2>
       <ImageCard title="先塞隐藏图" subtitle="放在最上面，等他点开才看到" image={imageA} type="a" fileInput={fileInputA} />
       <ImageCard title="再放封面哄他" subtitle="聊天窗口会优先看到它" image={imageB} type="b" fileInput={fileInputB} />
+      <Card className="bg-white/10 backdrop-blur border-white/20 p-4 rounded-xl space-y-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-bold text-[#FFE45C]">9:16 比例提醒</p>
+            <p className="text-xs text-gray-300">效果最佳的上传比例是 9:16，可一键修正</p>
+          </div>
+          <span className="text-[10px] px-2 py-1 rounded-full bg-white/10 text-[#2FF0B5]">建议</span>
+        </div>
+        <div className="space-y-2">
+          {([
+            { label: "隐藏图 A", image: imageA, type: "a" as const },
+            { label: "封面图 B", image: imageB, type: "b" as const },
+          ]).map(({ label, image, type }) => {
+            const info = getAspectInfo(image)
+            const needFix = !!info.ratioValue && info.status !== "ok"
+            return (
+              <div
+                key={label}
+                className="flex items-center justify-between rounded-lg bg-black/20 px-3 py-2 border border-white/10"
+              >
+                <div className="space-y-0.5">
+                  <p className="text-sm text-white">{label}</p>
+                  <p className="text-xs text-gray-400">
+                    {info.ratioText} {info.status === "ok" ? "· 已是 9:16" : info.status === "pending" ? "" : "· 需调整"}
+                  </p>
+                </div>
+                {needFix ? (
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    className="text-xs"
+                    onClick={() => handleNormalize(type)}
+                    disabled={fixing === type || loading !== null}
+                  >
+                    {fixing === type ? "处理中..." : "转成 9:16"}
+                  </Button>
+                ) : (
+                  <span className="text-xs text-[#2FF0B5]">{info.status === "ok" ? "OK" : "等待上传"}</span>
+                )}
+              </div>
+            )
+          })}
+        </div>
+        <p className="text-[11px] text-gray-400">
+          提示：如果原图比例不符，会导致预览偏移或白边过大。点击「转成 9:16」即可在站内裁切到合适比例。
+        </p>
+      </Card>
     </div>
   )
 }

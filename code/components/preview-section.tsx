@@ -6,6 +6,12 @@ import { Card } from "@/components/ui/card"
 import useImageStore from "@/lib/store"
 import { calculatePreviewLayout } from "@/lib/layout"
 
+const CONTACT_QR_URL = "/contact-qr.jpg"
+const WATERMARK_WIDTH_RATIO = 0.32
+const WATERMARK_TEXT =
+  "如果你觉得好玩有趣，欢迎联系网站的开发作者，提供你的好玩有趣的小点子，我们一起交流~"
+const WATERMARK_SUBTEXT = "保持原图比例，扫码即可加作者"
+
 interface PreviewSectionProps {
   activeTab: "preview" | "full"
   onTabChange: (tab: "preview" | "full") => void
@@ -36,6 +42,18 @@ export default function PreviewSection({ activeTab, onTabChange }: PreviewSectio
       percent: Math.round((segment.value / total) * 10000) / 100,
     }))
   }, [layout.coverHeight, layout.effectHeight, layout.gapHeight, layout.whiteBottom, layout.whiteTop])
+
+  const buildWatermarkBox = () => {
+    if (!layout.whiteBottom || layout.contentWidth <= 0) return null
+    const padding = Math.min(24, layout.whiteBottom * 0.2)
+    const qrWidth = Math.min(layout.contentWidth * WATERMARK_WIDTH_RATIO, layout.whiteBottom * 0.45)
+    const heightLimit = layout.whiteBottom - padding * 2
+    if (qrWidth <= 0 || heightLimit <= 0) return null
+    const qrHeight = Math.min(qrWidth, heightLimit * 0.6)
+    const bottom = padding
+    const left = layout.sidePadding
+    return { qrWidth, qrHeight, left, bottom }
+  }
 
   const renderComposite = (isPreviewWindow: boolean) => {
     if (!imageA && !imageB) {
@@ -175,8 +193,70 @@ export default function PreviewSection({ activeTab, onTabChange }: PreviewSectio
               style={{
                 height: `${layout.whiteBottom}px`,
                 backgroundColor: "#ffffff",
+                position: "relative",
               }}
-            />
+            >
+              {(() => {
+                const box = buildWatermarkBox()
+                if (!box) return null
+                return (
+                  <div
+                    style={{
+                      position: "absolute",
+                      left: `${box.left}px`,
+                      bottom: `${box.bottom}px`,
+                      width: `${layout.contentWidth}px`,
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      gap: "6px",
+                      padding: "8px",
+                    }}
+                  >
+                    <img
+                      src={CONTACT_QR_URL}
+                      alt="作者联系二维码"
+                      style={{
+                        width: `${box.qrWidth}px`,
+                        height: `${box.qrHeight}px`,
+                        objectFit: "contain",
+                        borderRadius: "12px",
+                        boxShadow: "0 6px 16px rgba(0,0,0,0.18)",
+                        border: "1px solid rgba(0,0,0,0.06)",
+                      }}
+                    />
+                    <p
+                      style={{
+                        color: "#4b5563",
+                        fontSize: `${Math.max(10, Math.min(14, layout.contentWidth * 0.03))}px`,
+                        textAlign: "center",
+                        maxWidth: `${layout.contentWidth * 0.9}px`,
+                        lineHeight: 1.35,
+                        margin: 0,
+                        padding: 0,
+                        wordBreak: "break-word",
+                      }}
+                    >
+                      {WATERMARK_TEXT}
+                    </p>
+                    <p
+                      style={{
+                        color: "#6b7280",
+                        fontSize: `${Math.max(9, Math.min(12, layout.contentWidth * 0.026))}px`,
+                        textAlign: "center",
+                        maxWidth: `${layout.contentWidth * 0.85}px`,
+                        lineHeight: 1.35,
+                        margin: 0,
+                        padding: 0,
+                        wordBreak: "break-word",
+                      }}
+                    >
+                      {WATERMARK_SUBTEXT}
+                    </p>
+                  </div>
+                )
+              })()}
+            </div>
           )}
         </div>
         {segmentBreakdown.length > 0 && (
