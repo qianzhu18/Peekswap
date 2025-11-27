@@ -5,8 +5,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card } from "@/components/ui/card"
 import useImageStore from "@/lib/store"
 import { calculatePreviewLayout } from "@/lib/layout"
+import { getContactWatermarkUrl } from "@/lib/image-utils"
 
-const CONTACT_QR_URL = "/contact-qr.jpg"
 const WATERMARK_WIDTH_RATIO = 0.32
 const WATERMARK_TEXT =
   "如果你觉得好玩有趣，欢迎联系网站的开发作者，提供你的好玩有趣的小点子，我们一起交流~"
@@ -19,6 +19,7 @@ interface PreviewSectionProps {
 
 export default function PreviewSection({ activeTab, onTabChange }: PreviewSectionProps) {
   const { imageA, imageB, coverRatio } = useImageStore()
+  const contactQrUrl = useMemo(() => getContactWatermarkUrl(), [])
 
   const previewWidth = 288
   const previewWindowHeight = 288
@@ -214,7 +215,7 @@ export default function PreviewSection({ activeTab, onTabChange }: PreviewSectio
                     }}
                   >
                     <img
-                      src={CONTACT_QR_URL}
+                      src={contactQrUrl}
                       alt="作者联系二维码"
                       style={{
                         width: `${box.qrWidth}px`,

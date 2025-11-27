@@ -9,7 +9,7 @@ export interface ProcessedImage {
 }
 
 const TARGET_ASPECT_RATIO = 9 / 16
-const CONTACT_WATERMARK_URL = "/contact-qr.jpg"
+const CONTACT_WATERMARK_PATH = "/contact-qr.jpg"
 const WATERMARK_WIDTH_RATIO = 0.32
 const WATERMARK_TEXT =
   "如果你觉得好玩有趣，欢迎联系网站的开发作者，提供你的好玩有趣的小点子，我们一起交流~"
@@ -24,6 +24,20 @@ const appendNameSuffix = (name: string, suffix: string) => {
   }
   return `${name}${suffix}`
 }
+
+const resolveAssetPrefix = () => {
+  // 允许通过环境变量显式设置资源前缀（如 GitHub Pages 子路径）
+  const rawPrefix = process.env.NEXT_PUBLIC_ASSET_PREFIX || process.env.NEXT_PUBLIC_BASE_PATH || ""
+  const envPrefix = rawPrefix.endsWith("/") ? rawPrefix.slice(0, -1) : rawPrefix
+  if (envPrefix) return envPrefix
+
+  // 回退到当前路径的首段作为子路径前缀，适配 /project/* 部署场景
+  if (typeof window === "undefined") return ""
+  const [firstSegment] = window.location.pathname.split("/").filter(Boolean)
+  return firstSegment ? `/${firstSegment}` : ""
+}
+
+export const getContactWatermarkUrl = () => `${resolveAssetPrefix()}${CONTACT_WATERMARK_PATH}`
 
 export const validateImage = async (file: File): Promise<{ valid: boolean; error?: string }> => {
   if (!file.type.startsWith("image/")) {
@@ -45,6 +59,42 @@ export const loadImage = (url: string): Promise<HTMLImageElement> => {
     img.onerror = () => reject(new Error("图片加载失败"))
     img.src = url
   })
+}
+
+const getWatermarkUrlCandidates = () => {
+  const candidates = new Set<string>()
+
+  const primary = getContactWatermarkUrl()
+  if (primary) candidates.add(primary)
+
+  if (typeof window !== "undefined") {
+    const withOrigin = (path: string) => {
+      if (/^https?:\/\//.test(path)) return path
+      return `${window.location.origin}${path}`
+    }
+    candidates.add(withOrigin(primary))
+    candidates.add(withOrigin(CONTACT_WATERMARK_PATH))
+    candidates.add(`${window.location.origin}${CONTACT_WATERMARK_PATH}`)
+  }
+
+  candidates.add(CONTACT_WATERMARK_PATH)
+  candidates.add("contact-qr.jpg")
+  candidates.add("./contact-qr.jpg")
+
+  return Array.from(candidates).filter(Boolean)
+}
+
+const loadWatermarkImage = async () => {
+  const candidates = getWatermarkUrlCandidates()
+  for (const url of candidates) {
+    try {
+      return await loadImage(url)
+    } catch (err) {
+      // 尝试下一个候选 URL
+      continue
+    }
+  }
+  throw new Error("水印资源加载失败")
 }
 
 export const processImage = async (file: File): Promise<ProcessedImage> => {
@@ -258,7 +308,7 @@ export const composeImages = async (
 
   if (plan.whiteBottom > 0) {
     try {
-      const watermark = await loadImage(CONTACT_WATERMARK_URL)
+      const watermark = await loadWatermarkImage()
       const placement = calculateWatermarkPlacement(plan, watermark.width, watermark.height, ctx)
       if (placement) {
         ctx.drawImage(watermark, placement.qr.x, placement.qr.y, placement.qr.width, placement.qr.height)
