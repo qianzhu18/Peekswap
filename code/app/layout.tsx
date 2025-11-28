@@ -10,7 +10,7 @@ export const metadata: Metadata = {
   title: "PeekSwap Lite · 搞事模式",
   description: "上传两张图，一键拼出聊天封面彩蛋。移动端优先，纯前端本地合成。",
   icons: {
-    icon: "/favicon.ico",
+    icon: "/favicon.png",
   },
 }
 
